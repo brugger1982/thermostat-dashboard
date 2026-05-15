@@ -1,0 +1,176 @@
+:root {
+    --bg: #0a0b10;
+    --card-bg: rgba(255, 255, 255, 0.05);
+    --accent: #4f46e5;
+    --text: #f8fafc;
+    --text-dim: #94a3b8;
+    --hdd: #ef4444;
+    --cdd: #3b82f6;
+    --glass-border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 60px;
+}
+
+.brand h1 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: -1px;
+}
+
+.brand .accent {
+    color: var(--accent);
+    text-shadow: 0 0 20px rgba(79, 70, 229, 0.4);
+}
+
+.brand p {
+    color: var(--text-dim);
+    font-size: 1rem;
+    margin-top: 4px;
+}
+
+.nav-actions {
+    display: flex;
+    gap: 15px;
+}
+
+.btn-status {
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    padding: 10px 20px;
+    border-radius: 12px;
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    transition: all 0.2s;
+}
+
+.btn-status:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+}
+
+.pulse-dot-small {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+}
+
+/* Metrics Grid */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 25px;
+}
+
+.month-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 24px;
+    transition: all 0.3s ease;
+}
+
+.month-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.month-card h3 {
+    font-family: 'Outfit', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 20px;
+}
+
+.card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.metric {
+    display: flex;
+    flex-direction: column;
+}
+
+.metric .label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    margin-bottom: 4px;
+}
+
+.metric .value-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.metric .value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+}
+
+.metric .subtext {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.metric.heating .value { color: var(--hdd); }
+.metric.cooling .value { color: var(--cdd); }
+
+.setpoint-box {
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 1px solid var(--glass-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.setpoint-label { font-size: 0.8rem; color: var(--text-dim); }
+.setpoint-value { font-weight: 600; color: #a8dadc; }
+
+footer {
+    margin-top: 80px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    padding-bottom: 40px;
+}
+
+.loading { grid-column: 1 / -1; text-align: center; padding: 100px; color: var(--text-dim); font-size: 1.2rem; }

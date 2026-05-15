@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Sync Status | Thermostat Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .sync-container { max-width: 1000px; margin: 0 auto; padding-bottom: 50px; }
+        .nav-back { display: inline-flex; align-items: center; color: var(--text-dim); text-decoration: none; margin-bottom: 20px; transition: color 0.2s; font-size: 0.9rem; }
+        .nav-back:hover { color: var(--accent); }
+
+        .health-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .health-card { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; display: flex; flex-direction: column; gap: 10px; }
+        .health-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); }
+        .health-main { display: flex; align-items: center; gap: 12px; font-size: 1.4rem; font-weight: 600; font-family: 'Outfit', sans-serif; }
+        .pulse-dot { width: 12px; height: 12px; border-radius: 50%; background: #10b981; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); animation: pulse 2s infinite; }
+        .pulse-dot.warning { background: #f59e0b; animation: pulse-warn 2s infinite; }
+        .pulse-dot.error { background: #ef4444; animation: none; }
+        
+        @keyframes pulse {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        .density-section { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; margin-bottom: 40px; }
+        .density-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14px, 1fr)); gap: 4px; margin-top: 15px; }
+        .day-block { aspect-ratio: 1; border-radius: 2px; background: rgba(255, 255, 255, 0.1); position: relative; cursor: help; }
+        .day-block.full { background: #10b981; }
+        .day-block.partial { background: #f59e0b; }
+        .day-block.gaps { background: #f97316; }
+        .day-block.empty { background: #ef4444; }
+
+        .tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #000; padding: 8px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; visibility: hidden; z-index: 10; margin-bottom: 5px; }
+        .day-block:hover .tooltip { visibility: visible; }
+
+        .year-section { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 20px; margin-bottom: 24px; overflow: hidden; }
+        .year-header { padding: 24px; cursor: pointer; display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.02); }
+        .year-title h2 { font-family: 'Outfit', sans-serif; font-size: 1.8rem; margin: 0; }
+        .year-summary { flex-grow: 1; margin-left: 40px; max-width: 400px; }
+        .progress-group { display: flex; flex-direction: column; gap: 8px; }
+        .progress-bar-container { height: 8px; background: rgba(0, 0, 0, 0.3); border-radius: 4px; overflow: hidden; display: flex; }
+        .progress-fill { height: 100%; transition: width 0.5s ease-out; }
+        .weather-fill { background: var(--cdd); }
+        .nest-fill { background: var(--hdd); }
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-dim); }
+
+        .month-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; padding: 24px; background: rgba(0, 0, 0, 0.1); display: none; }
+        .year-section.open .month-grid { display: grid; }
+        .month-card { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; }
+        .month-name { font-weight: 600; margin-bottom: 12px; display: block; }
+        .indicator { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; }
+        .dot.full { background: #10b981; }
+        .dot.partial { background: #f59e0b; }
+        .dot.empty { background: #ef4444; }
+    </style>
+</head>
+<body>
+    <div class="container sync-container">
+        <a href="/" class="nav-back">← Back to Dashboard</a>
+        <header style="text-align: left; margin-bottom: 30px;">
+            <h1>Data Sync <span class="accent">Status</span></h1>
+            <p class="subtitle">Historical coverage tracking for Weather & Nest data</p>
+        </header>
+
+        <div class="health-row">
+            <div class="health-card">
+                <span class="health-label">Nest Poller Heartbeat</span>
+                <div class="health-main">
+                    <div class="pulse-dot" id="nest-dot"></div>
+                    <span id="nest-status">Checking...</span>
+                </div>
+                <small class="text-dim" id="nest-time">Last update: --</small>
+            </div>
+            <div class="health-card">
+                <span class="health-label">Weather Data Pulse</span>
+                <div class="health-main">
+                    <div class="pulse-dot" id="weather-dot"></div>
+                    <span id="weather-status">Synced</span>
+                </div>
+                <small class="text-dim" id="weather-time">Latest Data: --</small>
+            </div>
+        </div>
+
+        <div class="density-section">
+            <span class="health-label">Recent Data Confidence (Last 90 Days)</span>
+            <div style="margin-top: 5px; font-size: 0.8rem; color: var(--text-dim);">Each block represents a day. Dark green = 100% complete. Orange/Red = Gaps detected (need Takeout).</div>
+            <div class="density-grid" id="density-grid"></div>
+        </div>
+
+        <div id="sync-content">
+            <div class="loading">Analyzing database coverage...</div>
+        </div>
+    </div>
+
+    <script>
+        function getTimeAgo(date) {
+            if (!date) return "Never";
+            const seconds = Math.floor((new Date() - new Date(date)) / 1000);
+            if (seconds < 60) return "Just now";
+            if (seconds < 3600) return Math.floor(seconds / 60) + "m ago";
+            if (seconds < 86400) return Math.floor(seconds / 3600) + "h ago";
+            return Math.floor(seconds / 86400) + "d ago";
+        }
+
+        async function loadSyncStatus() {
+            try {
+                const response = await fetch('/api/sync/status');
+                const data = await response.json();
+
+                const nestLast = data.health.nest_heartbeat;
+                const weatherLast = data.health.weather_heartbeat;
+                const nestDiff = nestLast ? (new Date() - new Date(nestLast)) / 1000 : Infinity;
+                
+                const nDot = document.getElementById('nest-dot');
+                const nStatus = document.getElementById('nest-status');
+                if (nestDiff < 600) { nStatus.innerText = "Active"; nDot.className = "pulse-dot"; }
+                else if (nestDiff < 3600) { nStatus.innerText = "Delayed"; nDot.className = "pulse-dot warning"; }
+                else { nStatus.innerText = "Inactive"; nDot.className = "pulse-dot error"; }
+                document.getElementById('nest-time').innerText = "Last Heartbeat: " + getTimeAgo(nestLast);
+                document.getElementById('weather-time').innerText = "Latest Data: " + (weatherLast ? new Date(weatherLast).toLocaleDateString() : "--");
+
+                const grid = document.getElementById('density-grid');
+                const expected = 720;
+                if (data.daily && Array.isArray(data.daily)) {
+                    grid.innerHTML = data.daily.map(day => {
+                        const date = new Date(day.date).toLocaleDateString();
+                        const confidence = Math.min(100, Math.round((day.sample_count / expected) * 100));
+                        let colorClass = "full";
+                        if (confidence < 20) colorClass = "empty";
+                        else if (confidence < 70) colorClass = "gaps";
+                        else if (confidence < 98) colorClass = "partial";
+                        return `<div class="day-block ${colorClass}"><div class="tooltip">${date}<br>Confidence: ${confidence}%<br>Samples: ${day.sample_count}/${expected}</div></div>`;
+                    }).join('');
+                }
+
+                const years = {};
+                data.coverage.forEach(row => {
+                    const date = new Date(row.month);
+                    const y = date.getFullYear();
+                    const m = date.getMonth() + 1;
+                    const daysInMonth = new Date(y, m, 0).getDate();
+                    if (!years[y]) years[y] = [];
+                    years[y].push({
+                        month: m,
+                        weather_days: parseInt(row.weather_days),
+                        thermostat_days: parseInt(row.nest_days),
+                        total_days: daysInMonth,
+                        total_samples: parseInt(row.nest_samples)
+                    });
+                });
+
+                const content = document.getElementById('sync-content');
+                content.innerHTML = Object.keys(years).sort((a, b) => b - a).map(year => {
+                    const months = years[year];
+                    const totalDaysInYear = months.reduce((sum, m) => sum + m.total_days, 0);
+                    const weatherPct = Math.round((months.reduce((sum, m) => sum + m.weather_days, 0) / totalDaysInYear) * 100);
+                    const nestPct = Math.round((months.reduce((sum, m) => sum + m.thermostat_days, 0) / totalDaysInYear) * 100);
+
+                    return `
+                        <div class="year-section" id="year-${year}">
+                            <div class="year-header" onclick="toggleYear('${year}')">
+                                <div class="year-title"><h2>${year}</h2><span class="text-dim">${months.length} months tracking</span></div>
+                                <div class="year-summary">
+                                    <div class="progress-group">
+                                        <div class="progress-label"><span>Weather Coverage</span><span>${weatherPct}%</span></div>
+                                        <div class="progress-bar-container"><div class="progress-fill weather-fill" style="width: ${weatherPct}%"></div></div>
+                                        <div class="progress-label" style="margin-top: 4px;"><span>Nest Confidence</span><span>${nestPct}%</span></div>
+                                        <div class="progress-bar-container"><div class="progress-fill nest-fill" style="width: ${nestPct}%"></div></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="month-grid">
+                                ${months.sort((a,b) => a.month - b.month).map(m => {
+                                    const monthName = new Date(2000, m.month - 1).toLocaleString('default', { month: 'long' });
+                                    const wStatus = m.weather_days >= m.total_days ? 'full' : (m.weather_days > 0 ? 'partial' : 'empty');
+                                    const nStatus = m.thermostat_days >= m.total_days ? 'full' : (m.thermostat_days > 0 ? 'partial' : 'empty');
+                                    const expectedInMonth = m.total_days * 720;
+                                    const mConfidence = Math.min(100, Math.round((m.total_samples / expectedInMonth) * 100));
+                                    return `<div class="month-card"><span class="month-name">${monthName}</span><div class="indicator"><div class="dot ${wStatus}"></div><span class="text-dim">Weather: ${m.weather_days}/${m.total_days}</span></div><div class="indicator"><div class="dot ${nStatus}"></div><span class="text-dim">Confidence: ${mConfidence}%</span></div></div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                }).join('');
+            } catch (err) {
+                console.error(err);
+                document.getElementById('sync-content').innerHTML = `<div class="error">Error: ${err.message}</div>`;
+            }
+        }
+        function toggleYear(year) { document.getElementById('year-' + year).classList.toggle('open'); }
+        loadSyncStatus();
+        setInterval(loadSyncStatus, 60000);
+    </script>
+</body>
+</html>

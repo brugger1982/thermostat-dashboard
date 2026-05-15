@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thermostat Dashboard | Smart Home Intelligence</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .dashboard-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 40px; }
+        .header-left h1 { font-family: 'Outfit', sans-serif; font-size: 3rem; margin: 0; line-height: 1; }
+        .header-left p { color: var(--text-dim); margin-top: 10px; font-size: 1.1rem; }
+        
+        .status-btn { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); padding: 12px 20px; border-radius: 100px; color: #fff; text-decoration: none; display: flex; align-items: center; gap: 10px; font-weight: 500; transition: all 0.2s; }
+        .status-btn:hover { background: rgba(255, 255, 255, 0.1); transform: translateY(-2px); }
+        .pulse-indicator { width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
+
+        .cards-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 24px; }
+        
+        .premium-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); position: relative; overflow: hidden; display: flex; flex-direction: column; }
+        .premium-card:hover { background: rgba(255, 255, 255, 0.07); transform: translateY(-8px); border-color: rgba(255, 255, 255, 0.2); }
+
+        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+        .month-label { font-family: 'Outfit', sans-serif; font-size: 1.8rem; font-weight: 700; }
+        .year-label { font-size: 0.9rem; color: var(--text-dim); display: block; }
+
+        .env-icons { display: flex; gap: 8px; }
+        .icon-tag { background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 6px; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; }
+
+        .comparison-block { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+        .temp-stat { display: flex; flex-direction: column; }
+        .temp-val { font-size: 1.6rem; font-weight: 700; font-family: 'Outfit', sans-serif; }
+        .temp-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-top: 4px; }
+
+        .progress-section { margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
+        .progress-group { margin-bottom: 12px; }
+        .progress-label { display: flex; justify-content: space-between; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 6px; }
+        .progress-bar-bg { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
+
+        .runtime-viz { display: flex; align-items: flex-end; gap: 8px; height: 40px; margin-bottom: 15px; }
+        .runtime-bar { flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); }
+        .heat-bar { background: var(--hdd-gradient); }
+        .ac-bar { background: var(--cdd-gradient); }
+
+        .efficiency-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 100px; font-weight: 600; display: inline-block; margin-top: 10px; }
+        .eff-high { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
+        .eff-mid { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
+        .eff-low { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+        .empty-state { grid-column: 1 / -1; padding: 100px; text-align: center; color: var(--text-dim); font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="dashboard-header">
+            <div class="header-left">
+                <h1>Nest <span class="accent">Analytics</span></h1>
+                <p>Thermostat Performance vs. Local Environment</p>
+            </div>
+            <a href="/sync.html" class="status-btn">
+                <div class="pulse-indicator"></div>
+                System Status
+            </a>
+        </header>
+
+        <main id="dashboard" class="cards-container">
+            <div class="empty-state">Calculating your historical benchmarks...</div>
+        </main>
+    </div>
+
+    <script>
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/thermostat/monthly');
+                const data = await response.json();
+                
+                const container = document.getElementById('dashboard');
+                if (!data || data.length === 0) {
+                    container.innerHTML = '<div class="empty-state">No history found. Connect your Nest account to begin.</div>';
+                    return;
+                }
+
+                // 1. Calculate Global Maximums for Scaling
+                let maxDailyRuntimeAvg = 0;
+                let maxMonthlyDegreeDays = 0;
+
+                data.forEach(m => {
+                    const date = new Date(m.period + '-02');
+                    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+                    
+                    const dailyAvg = (parseInt(m.heat_mins || 0) + parseInt(m.ac_mins || 0)) / 60 / daysInMonth;
+                    if (dailyAvg > maxDailyRuntimeAvg) maxDailyRuntimeAvg = dailyAvg;
+
+                    const totalDD = (parseFloat(m.total_hdd || 0) + parseFloat(m.total_cdd || 0));
+                    if (totalDD > maxMonthlyDegreeDays) maxMonthlyDegreeDays = totalDD;
+                });
+
+                // Safety check for empty or zero data
+                if (maxDailyRuntimeAvg === 0) maxDailyRuntimeAvg = 1;
+                if (maxMonthlyDegreeDays === 0) maxMonthlyDegreeDays = 1;
+
+                // 2. Render Cards with Relative Scaling
+                container.innerHTML = data.map(m => {
+                    const date = new Date(m.period + '-02');
+                    const monthName = date.toLocaleString('default', { month: 'long' });
+                    const year = date.getFullYear();
+                    const daysInMonth = new Date(year, date.getMonth() + 1, 0).getDate();
+
+                    // Relative Progress Calculations
+                    const currentDailyAvg = (parseInt(m.heat_mins || 0) + parseInt(m.ac_mins || 0)) / 60 / daysInMonth;
+                    const totalHours = currentDailyAvg * daysInMonth;
+                    const energyPct = (currentDailyAvg / maxDailyRuntimeAvg) * 100;
+                    
+                    const currentDD = (parseFloat(m.total_hdd || 0) + parseFloat(m.total_cdd || 0));
+                    const weatherPct = (currentDD / maxMonthlyDegreeDays) * 100;
+
+                    // Iconography Logic
+                    const icons = [];
+                    if (m.avg_temp_outdoor < 40) icons.push({ icon: '❄️', label: 'Cold Month' });
+                    if (m.avg_temp_outdoor > 75) icons.push({ icon: '🔥', label: 'Hot Month' });
+                    if (m.avg_wind_speed > 12) icons.push({ icon: '🌬️', label: 'Windy' });
+                    if (m.avg_solar < 140 && m.avg_solar !== null) icons.push({ icon: '☁️', label: 'Cloudy' });
+
+                    let effClass = 'eff-low';
+                    let effLabel = 'Efficient';
+                    if (currentDailyAvg > 5) { effClass = 'eff-high'; effLabel = 'Heavy Load'; }
+                    else if (currentDailyAvg > 2) { effClass = 'eff-mid'; effLabel = 'Moderate'; }
+
+                    return `
+                        <div class="premium-card">
+                            <div class="card-header">
+                                <div>
+                                    <span class="year-label">${year}</span>
+                                    <span class="month-label">${monthName}</span>
+                                </div>
+                                <div class="env-icons">
+                                    ${icons.map(i => `<div class="icon-tag" title="${i.label}">${i.icon}</div>`).join('')}
+                                </div>
+                            </div>
+
+                            <div class="comparison-block">
+                                <div class="temp-stat">
+                                    <span class="temp-val" style="color: #fff;">${m.avg_setpoint ? Math.round(m.avg_setpoint) : '--'}°</span>
+                                    <span class="temp-label">Target Avg</span>
+                                </div>
+                                <div class="temp-stat">
+                                    <span class="temp-val" style="color: var(--accent);">${m.avg_temp_outdoor ? Math.round(m.avg_temp_outdoor) : '--'}°</span>
+                                    <span class="temp-label">Outdoor Mean</span>
+                                </div>
+                            </div>
+
+                            <div class="progress-section">
+                                <div class="progress-group">
+                                    <div class="progress-label">
+                                        <span>Environmental Demand</span>
+                                        <span>${Math.round(currentDD)} DD</span>
+                                    </div>
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-fill" style="width: ${weatherPct}%; background: #6366f1;"></div>
+                                    </div>
+                                </div>
+
+                                <div class="progress-group">
+                                    <div class="progress-label">
+                                        <span>HVAC Energy Load</span>
+                                        <span>${totalHours.toFixed(1)} hrs</span>
+                                    </div>
+                                    <div class="progress-bar-bg">
+                                        <div class="progress-fill" style="width: ${energyPct}%; background: ${currentDailyAvg > 5 ? '#ef4444' : '#10b981'};"></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
+                                <span class="efficiency-badge ${effClass}">${effLabel}</span>
+                                <span style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">
+                                    ${totalHours.toFixed(1)} hrs total
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('dashboard').innerHTML = `<div class="empty-state">Error loading benchmarks: ${err.message}</div>`;
+            }
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>
