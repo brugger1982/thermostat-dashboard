@@ -38,6 +38,16 @@ class NestService {
     }
 
     async logRuntimes(pool) {
+        try {
+            // Load latest refresh token from database dynamically to prevent stale in-memory tokens across multiple instances
+            const tokenRes = await pool.query("SELECT value FROM system_settings WHERE key = 'NEST_REFRESH_TOKEN'");
+            if (tokenRes.rows.length > 0) {
+                this.refreshToken = tokenRes.rows[0].value;
+            }
+        } catch (dbErr) {
+            console.error("⚠️ Error loading refresh token from DB:", dbErr.message);
+        }
+
         if (!this.refreshToken) return;
         try {
             const token = await this.getAccessToken();
@@ -48,8 +58,8 @@ class NestService {
             const stats = device.traits['sdm.devices.traits.ThermostatHvac'];
             const tempTrait = device.traits['sdm.devices.traits.ThermostatTemperatureSetpoint'];
             
-            // Get raw Celsius and convert to Fahrenheit for the DB
-            const rawCelsius = tempTrait.heatSetpointCelsius || tempTrait.coolSetpointCelsius || 21.0;
+            // Get raw Celsius and convert to Fahrenheit for the DB (supports both old and new Nest SDM trait fields)
+            const rawCelsius = tempTrait.heatCelsius || tempTrait.coolCelsius || tempTrait.heatSetpointCelsius || tempTrait.coolSetpointCelsius || 21.0;
             const avgSetpointF = this.cToF(rawCelsius);
 
             const status = stats.status; // HEATING, COOLING, OFF
