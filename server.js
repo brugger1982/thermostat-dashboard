@@ -19,8 +19,7 @@ const nest = new NestService({
     clientId: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     projectId: process.env.NEST_PROJECT_ID,
-    refreshToken: process.env.NEST_REFRESH_TOKEN,
-    redirectUri: `http://localhost:${PORT}/auth/callback`
+    refreshToken: process.env.NEST_REFRESH_TOKEN
 });
 
 app.use(express.static('public'));
@@ -31,7 +30,10 @@ app.get('/auth/callback', async (req, res) => {
     const code = req.query.code;
     if (!code) return res.send("No code found.");
     try {
-        const refreshToken = await nest.exchangeCode(code);
+        // Build redirect URI dynamically from the incoming request
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+        const redirectUri = `${protocol}://${req.get('host')}/auth/callback`;
+        const refreshToken = await nest.exchangeCode(code, redirectUri);
         await weather.pool.query(`
             INSERT INTO system_settings (key, value) 
             VALUES ('NEST_REFRESH_TOKEN', $1) 

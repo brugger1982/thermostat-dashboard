@@ -6,17 +6,16 @@ class NestService {
         this.clientSecret = config.clientSecret;
         this.projectId = config.projectId;
         this.refreshToken = config.refreshToken;
-        this.redirectUri = config.redirectUri;
         this.accessToken = null;
     }
 
-    async exchangeCode(code) {
+    async exchangeCode(code, redirectUri) {
         const response = await axios.post('https://oauth2.googleapis.com/token', {
             client_id: this.clientId,
             client_secret: this.clientSecret,
             code: code,
             grant_type: 'authorization_code',
-            redirect_uri: this.redirectUri
+            redirect_uri: redirectUri
         });
         this.refreshToken = response.data.refresh_token;
         this.accessToken = response.data.access_token;
