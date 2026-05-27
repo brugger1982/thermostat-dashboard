@@ -32,22 +32,14 @@ app.get('/auth/callback', async (req, res) => {
     if (!code) return res.send("No code found.");
     try {
         const refreshToken = await nest.exchangeCode(code);
-        const envPath = path.join(__dirname, '.env');
-        let envContent = fs.readFileSync(envPath, 'utf8');
-        if (envContent.includes('NEST_REFRESH_TOKEN=')) {
-            envContent = envContent.replace(/NEST_REFRESH_TOKEN=.*/, `NEST_REFRESH_TOKEN=${refreshToken}`);
-        } else {
-            envContent += `\nNEST_REFRESH_TOKEN=${refreshToken}\n`;
-        }
-        fs.writeFileSync(envPath, envContent);
+        await weather.pool.query(`
+            INSERT INTO system_settings (key, value) 
+            VALUES ('NEST_REFRESH_TOKEN', $1) 
+            ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+        `, [refreshToken]);
         process.env.NEST_REFRESH_TOKEN = refreshToken;
         nest.refreshToken = refreshToken;
-        if (!global.nestPollerStarted) {
-            console.log("📡 Nest Poller started (2-minute interval)");
-            setInterval(() => nest.logRuntimes(weather.pool), 120000);
-            global.nestPollerStarted = true;
-            nest.logRuntimes(weather.pool);
-        }
+        nest.logRuntimes(weather.pool).catch(console.error); // Trigger immediate sync
         res.send("<h1>Success!</h1><p>Your Nest account is authorized. You can close this tab.</p>");
     } catch (err) {
         res.status(500).send("Auth Error: " + err.message);
@@ -55,6 +47,27 @@ app.get('/auth/callback', async (req, res) => {
 });
 
 // --- API Endpoints ---
+
+// --- CRON ROUTES ---
+app.get('/api/cron/sync-nest', async (req, res) => {
+    try {
+        await nest.logRuntimes(weather.pool);
+        res.send('OK');
+    } catch (err) {
+        console.error("❌ Nest Sync Error:", err);
+        res.status(500).send(err.message);
+    }
+});
+
+app.get('/api/cron/sync-weather', async (req, res) => {
+    try {
+        await weather.sync();
+        res.send('OK');
+    } catch (err) {
+        console.error("❌ Weather Sync Error:", err);
+        res.status(500).send(err.message);
+    }
+});
 
 app.get('/api/weather/monthly', async (req, res) => {
     try {
@@ -146,25 +159,33 @@ app.listen(PORT, async () => {
     try {
         await weather.pool.query('ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS sample_count INTEGER DEFAULT 1');
         await weather.pool.query('ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT NOW()');
+        await weather.pool.query(`
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key VARCHAR PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        `);
         console.log("✅ Database schema verified.");
+        
+        // Load Nest Token from DB
+        const tokenRes = await weather.pool.query(`SELECT value FROM system_settings WHERE key = 'NEST_REFRESH_TOKEN'`);
+        if (tokenRes.rows.length > 0) {
+            const dbToken = tokenRes.rows[0].value;
+            process.env.NEST_REFRESH_TOKEN = dbToken;
+            nest.refreshToken = dbToken;
+        }
     } catch (err) {
         console.log("⚠️ Database schema check: ", err.message);
     }
 
-    try { await weather.sync(); } catch (err) { console.error("❌ Weather Sync Error:", err); }
-
-    if (process.env.NEST_REFRESH_TOKEN && !global.nestPollerStarted) {
-        console.log("📡 Nest Poller started (1-minute interval)");
-        setInterval(() => nest.logRuntimes(weather.pool), 60000);
-        global.nestPollerStarted = true;
-        nest.logRuntimes(weather.pool);
+    // Start Nest polling every 60 seconds
+    if (nest.refreshToken) {
+        console.log("🔄 Starting Nest Poller (every 60s)...");
+        nest.logRuntimes(weather.pool).catch(console.error);
+        setInterval(() => nest.logRuntimes(weather.pool).catch(console.error), 60000);
+    } else {
+        console.log("⚠️ Nest Poller skipped: No refresh token configured.");
     }
-
-    // --- Periodic Weather Sync (Every 12 hours) ---
-    setInterval(async () => {
-        console.log("🔄 Periodic Weather Sync triggering...");
-        try { await weather.sync(); } catch (err) { console.error("❌ Periodic Weather Sync Error:", err); }
-    }, 12 * 60 * 60 * 1000);
 
     console.log(`\n🏠 Webapp is live at http://localhost:${PORT}`);
 });
