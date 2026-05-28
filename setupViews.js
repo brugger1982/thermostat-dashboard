@@ -21,7 +21,8 @@ SELECT
     SUM(COALESCE(t.heat_mins, 0) + COALESCE(t.ac_mins, 0)) as total_runtime_mins,
     SUM(COALESCE(d.hdd, 0)) as total_hdd,
     SUM(COALESCE(d.cdd, 0)) as total_cdd,
-    ROUND(AVG(t.avg_setpoint)::numeric, 1) as avg_target_f,
+    ROUND(AVG(CASE WHEN t.heat_mins > 0 THEN t.avg_setpoint END)::numeric, 1) as heat_target_f,
+    ROUND(AVG(CASE WHEN t.ac_mins > 0 THEN t.avg_setpoint END)::numeric, 1) as cool_target_f,
     ROUND(AVG(d.temp_avg)::numeric, 1) as avg_temp_outdoor,
     ROUND(AVG(d.wind_speed)::numeric, 1) as avg_wind_speed,
     ROUND(AVG(d.solar_rad)::numeric, 1) as avg_solar,
@@ -47,6 +48,8 @@ SELECT
     SUM(COALESCE(t.ac_mins, 0)) as total_ac_mins,
     SUM(COALESCE(d.hdd, 0)) as total_hdd,
     SUM(COALESCE(d.cdd, 0)) as total_cdd,
+    ROUND(AVG(CASE WHEN t.heat_mins > 0 THEN t.avg_setpoint END)::numeric, 1) as heat_target_f,
+    ROUND(AVG(CASE WHEN t.ac_mins > 0 THEN t.avg_setpoint END)::numeric, 1) as cool_target_f,
     ROUND(AVG(d.temp_avg)::numeric, 1) as avg_temp_outdoor,
     CASE WHEN SUM(COALESCE(d.hdd, 0)) > 0 THEN ROUND((SUM(t.heat_mins)::numeric / SUM(d.hdd)), 2) ELSE 0 END as heat_efficiency,
     CASE WHEN SUM(COALESCE(d.cdd, 0)) > 0 THEN ROUND((SUM(t.ac_mins)::numeric / SUM(d.cdd)), 2) ELSE 0 END as cool_efficiency
@@ -64,6 +67,8 @@ SELECT
     SUM(COALESCE(t.ac_mins, 0)) as total_ac_mins,
     SUM(COALESCE(d.hdd, 0)) as total_hdd,
     SUM(COALESCE(d.cdd, 0)) as total_cdd,
+    ROUND(AVG(CASE WHEN t.heat_mins > 0 THEN t.avg_setpoint END)::numeric, 1) as heat_target_f,
+    ROUND(AVG(CASE WHEN t.ac_mins > 0 THEN t.avg_setpoint END)::numeric, 1) as cool_target_f,
     ROUND(AVG(d.temp_avg)::numeric, 1) as avg_temp_outdoor,
     CASE WHEN SUM(COALESCE(d.hdd, 0)) > 0 THEN ROUND((SUM(t.heat_mins)::numeric / SUM(d.hdd)), 2) ELSE 0 END as heat_efficiency,
     CASE WHEN SUM(COALESCE(d.cdd, 0)) > 0 THEN ROUND((SUM(t.ac_mins)::numeric / SUM(d.cdd)), 2) ELSE 0 END as cool_efficiency

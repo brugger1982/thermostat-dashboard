@@ -35,17 +35,105 @@
         .temp-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-dim); margin-top: 4px; }
 
         .progress-section { margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px; }
-        .progress-group { margin-bottom: 12px; }
-        .progress-label { display: flex; justify-content: space-between; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-dim); margin-bottom: 6px; }
-        .progress-bar-bg { height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden; }
-        .progress-fill { height: 100%; border-radius: 3px; transition: width 1s ease-out; }
+        
+        .v-bars-wrapper { display: flex; justify-content: space-around; height: 160px; margin-bottom: 5px; }
+        .v-bar-col { display: flex; flex-direction: column; align-items: center; width: 45%; height: 100%; }
+        .v-bar-title { font-size: 0.7rem; text-transform: uppercase; color: var(--text-dim); text-align: center; margin-bottom: 12px; letter-spacing: 0.5px; }
+        
+        .v-bar-container { 
+            flex: 1; width: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; 
+            position: relative; display: flex; flex-direction: column; margin-bottom: 12px;
+        }
+        .v-bar-zero { position: absolute; top: 50%; left: -4px; right: -4px; height: 2px; background: rgba(255,255,255,0.3); z-index: 2; border-radius: 2px; }
+        
+        .v-bar-top-wrapper { height: 50%; width: 100%; position: relative; border-top-left-radius: 6px; border-top-right-radius: 6px; overflow: hidden; }
+        .v-bar-bottom-wrapper { height: 50%; width: 100%; position: relative; border-bottom-left-radius: 6px; border-bottom-right-radius: 6px; overflow: hidden; }
+        
+        .v-bar-top-fill { position: absolute; bottom: 0; left: 0; right: 0; transition: height 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        .v-bar-bottom-fill { position: absolute; top: 0; left: 0; right: 0; transition: height 1s cubic-bezier(0.4, 0, 0.2, 1); }
+        
+        .v-bar-hover-zone {
+            position: absolute;
+            left: 0;
+            right: 0;
+            width: 100%;
+            height: 50%;
+            z-index: 5;
+            cursor: pointer;
+        }
+        .v-bar-hover-zone.top-zone {
+            top: 0;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
+        }
+        .v-bar-hover-zone.bottom-zone {
+            bottom: 0;
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+        .v-bar-hover-zone::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            backdrop-filter: blur(6px);
+        }
+        .v-bar-hover-zone.top-zone::after {
+            bottom: 110%;
+            left: 50%;
+            transform: translateX(-50%) translateY(4px);
+        }
+        .v-bar-hover-zone.bottom-zone::after {
+            top: 110%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-4px);
+        }
+        .v-bar-hover-zone:hover::after {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .v-bar-side-label {
+            position: absolute;
+            right: calc(100% + 8px);
+            font-size: 0.8rem;
+            font-weight: 700;
+            font-family: 'Outfit', sans-serif;
+            line-height: 1;
+            white-space: nowrap;
+        }
+        .v-bar-side-label.top-side {
+            bottom: calc(50% + 4px);
+        }
+        .v-bar-side-label.bottom-side {
+            top: calc(50% + 4px);
+        }
+        
+        .v-bar-unit {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            color: var(--text-dim);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            margin-top: 4px;
+            text-align: center;
+        }
+        
+        .stat-blue { color: #3b82f6; } /* Blue for Cold/Cooling */
+        .stat-red { color: #ef4444; }  /* Red for Heat/Warming */
 
-        .runtime-viz { display: flex; align-items: flex-end; gap: 8px; height: 40px; margin-bottom: 15px; }
-        .runtime-bar { flex: 1; border-radius: 3px; background: rgba(255,255,255,0.1); }
-        .heat-bar { background: var(--hdd-gradient); }
-        .ac-bar { background: var(--cdd-gradient); }
-
-        .efficiency-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 100px; font-weight: 600; display: inline-block; margin-top: 10px; }
+        .efficiency-badge { font-size: 0.75rem; padding: 4px 10px; border-radius: 100px; font-weight: 600; display: inline-block; }
         .eff-high { background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
         .eff-mid { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
         .eff-low { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
@@ -84,23 +172,27 @@
                 }
 
                 // 1. Calculate Global Maximums for Scaling
-                let maxDailyRuntimeAvg = 0;
-                let maxMonthlyDegreeDays = 0;
+                let maxGlobalCDD = 0;
+                let maxGlobalHDD = 0;
+                let maxGlobalCoolHrs = 0;
+                let maxGlobalHeatHrs = 0;
 
                 data.forEach(m => {
-                    const date = new Date(m.period + '-02');
-                    const daysInMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
-                    
-                    const dailyAvg = (parseInt(m.heat_mins || 0) + parseInt(m.ac_mins || 0)) / 60 / daysInMonth;
-                    if (dailyAvg > maxDailyRuntimeAvg) maxDailyRuntimeAvg = dailyAvg;
+                    const cdd = parseFloat(m.total_cdd || 0);
+                    const hdd = parseFloat(m.total_hdd || 0);
+                    if (cdd > maxGlobalCDD) maxGlobalCDD = cdd;
+                    if (hdd > maxGlobalHDD) maxGlobalHDD = hdd;
 
-                    const totalDD = (parseFloat(m.total_hdd || 0) + parseFloat(m.total_cdd || 0));
-                    if (totalDD > maxMonthlyDegreeDays) maxMonthlyDegreeDays = totalDD;
+                    const coolHrs = parseInt(m.ac_mins || 0) / 60;
+                    const heatHrs = parseInt(m.heat_mins || 0) / 60;
+                    if (coolHrs > maxGlobalCoolHrs) maxGlobalCoolHrs = coolHrs;
+                    if (heatHrs > maxGlobalHeatHrs) maxGlobalHeatHrs = heatHrs;
                 });
 
-                // Safety check for empty or zero data
-                if (maxDailyRuntimeAvg === 0) maxDailyRuntimeAvg = 1;
-                if (maxMonthlyDegreeDays === 0) maxMonthlyDegreeDays = 1;
+                if (maxGlobalCDD === 0) maxGlobalCDD = 1;
+                if (maxGlobalHDD === 0) maxGlobalHDD = 1;
+                if (maxGlobalCoolHrs === 0) maxGlobalCoolHrs = 1;
+                if (maxGlobalHeatHrs === 0) maxGlobalHeatHrs = 1;
 
                 // 2. Render Cards with Relative Scaling
                 container.innerHTML = data.map(m => {
@@ -109,13 +201,21 @@
                     const year = date.getFullYear();
                     const daysInMonth = new Date(year, date.getMonth() + 1, 0).getDate();
 
-                    // Relative Progress Calculations
                     const currentDailyAvg = (parseInt(m.heat_mins || 0) + parseInt(m.ac_mins || 0)) / 60 / daysInMonth;
-                    const totalHours = currentDailyAvg * daysInMonth;
-                    const energyPct = (currentDailyAvg / maxDailyRuntimeAvg) * 100;
                     
-                    const currentDD = (parseFloat(m.total_hdd || 0) + parseFloat(m.total_cdd || 0));
-                    const weatherPct = (currentDD / maxMonthlyDegreeDays) * 100;
+                    const cdd = parseFloat(m.total_cdd || 0);
+                    const hdd = parseFloat(m.total_hdd || 0);
+                    const cddPct = (cdd / maxGlobalCDD) * 100;
+                    const hddPct = (hdd / maxGlobalHDD) * 100;
+
+                    const coolHrs = parseInt(m.ac_mins || 0) / 60;
+                    const heatHrs = parseInt(m.heat_mins || 0) / 60;
+                    const coolPct = (coolHrs / maxGlobalCoolHrs) * 100;
+                    const heatPct = (heatHrs / maxGlobalHeatHrs) * 100;
+                    
+                    const totalHours = coolHrs + heatHrs;
+                    const totalDD = cdd + hdd;
+                    const hrsPer100DD = totalDD > 0 ? (totalHours / (totalDD / 100)).toFixed(1) : '--';
 
                     // Iconography Logic
                     const icons = [];
@@ -134,49 +234,75 @@
                             <div class="card-header">
                                 <div>
                                     <span class="year-label">${year}</span>
-                                    <span class="month-label">${monthName}</span>
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span class="month-label">${monthName}</span>
+                                        <span class="efficiency-badge ${effClass}" style="margin: 0;">${effLabel}</span>
+                                    </div>
                                 </div>
                                 <div class="env-icons">
                                     ${icons.map(i => `<div class="icon-tag" title="${i.label}">${i.icon}</div>`).join('')}
                                 </div>
                             </div>
-
-                            <div class="comparison-block">
+                            <div class="comparison-block" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 10px;">
                                 <div class="temp-stat">
-                                    <span class="temp-val" style="color: #fff;">${m.avg_setpoint ? Math.round(m.avg_setpoint) : '--'}°</span>
-                                    <span class="temp-label">Target Avg</span>
+                                    <span class="temp-val" style="color: #ef4444;">${m.heat_target_f ? Math.round(m.heat_target_f) : '--'}°</span>
+                                    <span class="temp-label">Heat Avg</span>
+                                </div>
+                                <div class="temp-stat">
+                                    <span class="temp-val" style="color: #3b82f6;">${m.cool_target_f ? Math.round(m.cool_target_f) : '--'}°</span>
+                                    <span class="temp-label">Cool Avg</span>
                                 </div>
                                 <div class="temp-stat">
                                     <span class="temp-val" style="color: var(--accent);">${m.avg_temp_outdoor ? Math.round(m.avg_temp_outdoor) : '--'}°</span>
-                                    <span class="temp-label">Outdoor Mean</span>
+                                    <span class="temp-label">Out Mean</span>
                                 </div>
                             </div>
 
-                            <div class="progress-section">
-                                <div class="progress-group">
-                                    <div class="progress-label">
-                                        <span>Environmental Demand</span>
-                                        <span>${Math.round(currentDD)} DD</span>
-                                    </div>
-                                    <div class="progress-bar-bg">
-                                        <div class="progress-fill" style="width: ${weatherPct}%; background: #6366f1;"></div>
-                                    </div>
-                                </div>
+                            <div class="progress-section v-bars-wrapper">
+                                 <!-- Demand Bar -->
+                                 <div class="v-bar-col">
+                                     <div class="v-bar-title">Env Demand</div>
+                                     <div class="v-bar-container">
+                                         <div class="v-bar-zero"></div>
+                                         <div class="v-bar-top-wrapper">
+                                             <div class="v-bar-top-fill" style="height: ${cddPct}%; background: #ef4444;"></div>
+                                         </div>
+                                         <div class="v-bar-bottom-wrapper">
+                                             <div class="v-bar-bottom-fill" style="height: ${hddPct}%; background: #3b82f6;"></div>
+                                         </div>
+                                         <div class="v-bar-hover-zone top-zone" data-tooltip="${Math.round(cdd)} DD (Hot)"></div>
+                                         <div class="v-bar-hover-zone bottom-zone" data-tooltip="${Math.round(hdd)} DD (Cold)"></div>
+                                         <div class="v-bar-side-label top-side stat-red">${Math.round(cdd)}</div>
+                                         <div class="v-bar-side-label bottom-side stat-blue">${Math.round(hdd)}</div>
+                                     </div>
+                                     <div class="v-bar-unit">DD</div>
+                                 </div>
 
-                                <div class="progress-group">
-                                    <div class="progress-label">
-                                        <span>HVAC Energy Load</span>
-                                        <span>${totalHours.toFixed(1)} hrs</span>
-                                    </div>
-                                    <div class="progress-bar-bg">
-                                        <div class="progress-fill" style="width: ${energyPct}%; background: ${currentDailyAvg > 5 ? '#ef4444' : '#10b981'};"></div>
-                                    </div>
-                                </div>
-                            </div>
+                                 <!-- Usage Bar -->
+                                 <div class="v-bar-col">
+                                     <div class="v-bar-title">HVAC Load</div>
+                                     <div class="v-bar-container">
+                                         <div class="v-bar-zero"></div>
+                                         <div class="v-bar-top-wrapper">
+                                             <div class="v-bar-top-fill" style="height: ${coolPct}%; background: #3b82f6;"></div>
+                                         </div>
+                                         <div class="v-bar-bottom-wrapper">
+                                             <div class="v-bar-bottom-fill" style="height: ${heatPct}%; background: #ef4444;"></div>
+                                         </div>
+                                         <div class="v-bar-hover-zone top-zone" data-tooltip="${coolHrs.toFixed(1)} Hrs (Cooling)"></div>
+                                         <div class="v-bar-hover-zone bottom-zone" data-tooltip="${heatHrs.toFixed(1)} Hrs (Heating)"></div>
+                                         <div class="v-bar-side-label top-side stat-blue">${coolHrs.toFixed(0)}</div>
+                                         <div class="v-bar-side-label bottom-side stat-red">${heatHrs.toFixed(0)}</div>
+                                     </div>
+                                     <div class="v-bar-unit">Hrs</div>
+                                 </div>
+                             </div>
 
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 5px;">
-                                <span class="efficiency-badge ${effClass}">${effLabel}</span>
-                                <span style="font-size: 0.7rem; color: var(--text-dim); margin-top: 10px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                                <div style="font-size: 0.95rem; color: #fff; font-weight: 700;">
+                                    ${hrsPer100DD} <span style="font-size: 0.75rem; color: var(--text-dim); font-weight: 500;">Hrs/100 DDs</span>
+                                </div>
+                                <span style="font-size: 0.8rem; color: var(--text-dim); font-weight: 500;">
                                     ${totalHours.toFixed(1)} hrs total
                                 </span>
                             </div>
