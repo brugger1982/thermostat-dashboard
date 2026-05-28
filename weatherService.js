@@ -170,6 +170,80 @@ class WeatherService {
         return data.days;
     }
 
+    async syncForecast() {
+        if (!this.apiKey || !this.zipCode) {
+            console.error("❌ Weather Service (Forecast): Missing API Key or Zip Code.");
+            return;
+        }
+
+        console.log("DEBUG: Fetching 7-day weather forecast from Visual Crossing...");
+        const url = `https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/timeline/${this.zipCode}/next7days?unitGroup=us&elements=datetime,tempmax,tempmin,temp,humidity,windspeed,solarradiation,heatingdegreedays,coolingdegreedays,icon,cloudcover,precip,precipprob,conditions&include=days&key=${this.apiKey}&contentType=json`;
+        
+        const res = await fetch(url);
+        if (!res.ok) {
+            const errorText = await res.text();
+            throw new Error(`API ${res.status}: ${errorText}`);
+        }
+        
+        const data = await res.json();
+        const days = data.days;
+        
+        console.log(`DEBUG: Syncing ${days.length} forecast days into the database...`);
+        
+        for (const day of days) {
+            let hdd = day.heatingdegreedays;
+            let cdd = day.coolingdegreedays;
+
+            if (hdd === null || hdd === undefined) {
+                hdd = Math.max(0, 65 - day.temp);
+            }
+            if (cdd === null || cdd === undefined) {
+                cdd = Math.max(0, day.temp - 65);
+            }
+
+            await this.pool.query(
+                `INSERT INTO weather_forecast (
+                    date, hdd, cdd, tmax, tmin, temp_avg, humidity, solar_rad, wind_speed, last_updated, icon, cloudcover, precip, precipprob, conditions
+                ) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, $11, $12, $13, $14) 
+                 ON CONFLICT (date) DO UPDATE SET
+                    hdd = EXCLUDED.hdd,
+                    cdd = EXCLUDED.cdd,
+                    tmax = EXCLUDED.tmax,
+                    tmin = EXCLUDED.tmin,
+                    temp_avg = EXCLUDED.temp_avg,
+                    humidity = EXCLUDED.humidity,
+                    solar_rad = EXCLUDED.solar_rad,
+                    wind_speed = EXCLUDED.wind_speed,
+                    last_updated = EXCLUDED.last_updated,
+                    icon = EXCLUDED.icon,
+                    cloudcover = EXCLUDED.cloudcover,
+                    precip = EXCLUDED.precip,
+                    precipprob = EXCLUDED.precipprob,
+                    conditions = EXCLUDED.conditions`,
+                [
+                    day.datetime, 
+                    hdd, 
+                    cdd, 
+                    day.tempmax, 
+                    day.tempmin,
+                    day.temp,
+                    day.humidity,
+                    day.solarradiation,
+                    day.windspeed,
+                    day.icon,
+                    day.cloudcover,
+                    day.precip,
+                    day.precipprob,
+                    day.conditions
+                ]
+            );
+        }
+        
+        console.log("✅ Weather forecast sync complete!");
+        return days.length;
+    }
+
     async getMonthlyTotals() {
         const query = `
             SELECT 

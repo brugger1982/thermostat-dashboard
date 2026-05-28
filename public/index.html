@@ -156,11 +156,51 @@
         <div class="tabs-container">
             <button class="tab-btn active" data-tab="overview">Overview</button>
             <button class="tab-btn" data-tab="details">Usage Details</button>
+            <button class="tab-btn" data-tab="forecast">Forecast</button>
             <button class="tab-btn" data-tab="sync">System Status</button>
         </div>
 
-        <!-- 1. Overview Tab (High Level Visualizations) -->
-        <div id="overview" class="tab-content active">
+        <div class="tab-viewport">
+            <!-- 1. Overview Tab (High Level Visualizations) -->
+            <div id="overview" class="tab-content active">
+            <!-- Overview KPI Layer -->
+            <div class="kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px;">
+                <!-- Card 1: Today's Forecast & Expected Usage -->
+                <div class="chart-card" style="margin-bottom: 0; padding: 20px; display: flex; flex-direction: column; justify-content: center; min-height: 100px;">
+                    <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600; letter-spacing: 0.5px;">Today's Forecast &amp; Load</span>
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px;">
+                        <div>
+                            <span id="overview-kpi-today-weather" style="font-size: 1.5rem; font-weight: 700; font-family: 'Outfit'; display: block;">--</span>
+                            <span id="overview-kpi-today-cond" style="font-size: 0.8rem; color: var(--text-dim);">--</span>
+                        </div>
+                        <div style="text-align: right;">
+                            <span id="overview-kpi-today-usage" style="font-size: 1.8rem; font-weight: 700; font-family: 'Outfit'; color: var(--accent); display: block;">--</span>
+                            <span style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-dim); letter-spacing: 0.5px;">Est. Runtime</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Current Month vs. Historical Expected -->
+                <div class="chart-card" style="margin-bottom: 0; padding: 20px; display: flex; flex-direction: column; justify-content: center; min-height: 100px;">
+                    <span id="overview-kpi-month-title" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600; letter-spacing: 0.5px;">Monthly Runtime vs Expected</span>
+                    <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 5px;">
+                        <span id="overview-kpi-month-usage" style="font-size: 2.2rem; font-weight: 700; font-family: 'Outfit'; color: #fff;">-- hrs</span>
+                        <span id="overview-kpi-month-diff" style="font-size: 0.85rem; font-weight: 600;">--</span>
+                    </div>
+                    <span id="overview-kpi-month-subtext" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 5px; display: block;">--</span>
+                </div>
+
+                <!-- Card 3: Annual Usage vs. Historical YTD Expected -->
+                <div class="chart-card" style="margin-bottom: 0; padding: 20px; display: flex; flex-direction: column; justify-content: center; min-height: 100px;">
+                    <span id="overview-kpi-year-title" style="font-size: 0.75rem; text-transform: uppercase; color: var(--text-dim); font-weight: 600; letter-spacing: 0.5px;">Annual YTD vs Historical Normal</span>
+                    <div style="display: flex; align-items: baseline; gap: 8px; margin-top: 5px;">
+                        <span id="overview-kpi-year-usage" style="font-size: 2.2rem; font-weight: 700; font-family: 'Outfit'; color: #10b981;">-- hrs</span>
+                        <span id="overview-kpi-year-diff" style="font-size: 0.85rem; font-weight: 600;">--</span>
+                    </div>
+                    <span id="overview-kpi-year-subtext" style="font-size: 0.75rem; color: var(--text-dim); margin-top: 5px; display: block;">--</span>
+                </div>
+            </div>
+
             <!-- Multi-Year Seasonal Shifts Card -->
             <div class="chart-card">
                 <div class="chart-header">
@@ -264,6 +304,40 @@
             </main>
         </div>
 
+        <!-- Forecast Tab -->
+        <div id="forecast" class="tab-content">
+            <div id="forecast-alerts"></div>
+            
+            <div id="forecast-loader" class="loading" style="display: none; text-align: center; margin: 40px 0; color: var(--text-dim); font-size: 1.2rem;">
+                <div class="pulse-dot" style="display: inline-block; margin-right: 10px; width: 12px; height: 12px; background: #3b82f6; box-shadow: 0 0 8px #3b82f6;"></div>
+                Analyzing meteorological data...
+            </div>
+            
+            <div id="forecast-grid" class="cards-container" style="margin-bottom: 30px;">
+                <!-- Cards injected via JS -->
+            </div>
+            
+            <div id="forecast-charts-container" style="display: none;">
+                <div class="chart-card">
+                    <div class="chart-header">
+                        <span class="chart-title">7-Day Temperature Projection</span>
+                    </div>
+                    <div class="canvas-container" style="height: 300px;">
+                        <canvas id="forecastTempChart"></canvas>
+                    </div>
+                </div>
+                
+                <div class="chart-card" style="margin-top: 24px;">
+                    <div class="chart-header">
+                        <span class="chart-title">Projected HVAC Energy Usage</span>
+                    </div>
+                    <div class="canvas-container" style="height: 300px;">
+                        <canvas id="forecastEnergyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- 3. System Status Tab (Database Coverage & Heartbeats) -->
         <div id="sync" class="tab-content">
             <div class="health-row">
@@ -295,7 +369,8 @@
                 <div class="loading">Analyzing database coverage...</div>
             </div>
         </div>
-    </div>
+    </div> <!-- Closing tab-viewport -->
+    </div> <!-- Closing dashboard-container -->
 
     <!-- Monthly Detail Modal -->
     <div class="modal-overlay" id="detail-modal">
@@ -331,25 +406,80 @@
             return ZIP_HISTORICAL_TEMPS[monthIndex] || 50;
         }
 
-        // Initialize Tabs
+        // Track whether tabs have been loaded/rendered initially
+        window.loadedTabs = {
+            overview: true, // rendered on initial load
+            details: true,  // rendered on initial load
+            forecast: false,
+            sync: false
+        };
+
+        // Initialize Tabs with Smooth GPU-Accelerated Horizontal Slide Transitions & Responsive Viewport Heights
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
-                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-                
-                btn.classList.add('active');
-                const tabId = btn.getAttribute('data-tab');
-                document.getElementById(tabId).classList.add('active');
-                
-                // Re-render relevant charts or load stats when tab becomes active
-                if (tabId === 'overview') {
-                    renderTrendsCharts();
-                    renderEfficiencyChart();
-                } else if (tabId === 'details') {
-                    renderOverviewChart();
-                } else if (tabId === 'sync') {
-                    loadSyncStatus();
+                const activeBtn = document.querySelector('.tab-btn.active');
+                if (activeBtn === btn) return; // clicked same tab
+
+                // Get indexes to determine sliding direction
+                const buttons = Array.from(document.querySelectorAll('.tab-btn'));
+                const currentIndex = buttons.indexOf(activeBtn);
+                const targetIndex = buttons.indexOf(btn);
+                const direction = targetIndex > currentIndex ? 'right' : 'left';
+
+                const currentTabId = activeBtn.getAttribute('data-tab');
+                const targetTabId = btn.getAttribute('data-tab');
+
+                const currentTab = document.getElementById(currentTabId);
+                const targetTab = document.getElementById(targetTabId);
+                const viewport = document.querySelector('.tab-viewport');
+
+                // Animate viewport heights to prevent vertical layout jumps
+                const currentHeight = currentTab.offsetHeight;
+                viewport.style.height = `${currentHeight}px`;
+
+                // Set transitioning overlap layouts
+                currentTab.classList.add('transitioning');
+                targetTab.classList.add('transitioning');
+
+                // Apply correct entry/exit slide animations based on click navigation direction
+                if (direction === 'right') {
+                    currentTab.classList.add('slide-exit-left');
+                    targetTab.classList.add('slide-entry-right');
+                } else {
+                    currentTab.classList.add('slide-exit-right');
+                    targetTab.classList.add('slide-entry-left');
                 }
+
+                // Activate target tab rendering
+                targetTab.classList.add('active');
+
+                // Pre-render target tab data ONLY if not loaded yet to prevent layout/repaint flashes during slide
+                if (!window.loadedTabs[targetTabId]) {
+                    if (targetTabId === 'forecast') {
+                        loadForecast();
+                    } else if (targetTabId === 'sync') {
+                        loadSyncStatus();
+                    }
+                    window.loadedTabs[targetTabId] = true;
+                }
+
+                // Force layout reflow so the browser registers the offset transition start state
+                targetTab.offsetHeight;
+
+                // Set target height to animate smoothly
+                const targetHeight = targetTab.offsetHeight;
+                viewport.style.height = `${targetHeight}px`;
+
+                // Update active tab buttons
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Wait 750ms for transition animation keyframes to finish, then clean up transitioning states
+                setTimeout(() => {
+                    currentTab.classList.remove('active', 'transitioning', 'slide-exit-left', 'slide-exit-right');
+                    targetTab.classList.remove('transitioning', 'slide-entry-left', 'slide-entry-right');
+                    viewport.style.height = 'auto'; // restore viewport auto height for window responsiveness
+                }, 750); // Matches slower 0.75s slide animations
             });
         });
 
@@ -407,6 +537,7 @@
 
                 // Initial Renders
                 updateKPICards();
+                updateOverviewKPIs();
                 renderCards();
                 renderTrendsCharts();
                 renderEfficiencyChart();
@@ -484,6 +615,160 @@
             // Populate normalized weather efficiency KPI
             const ytdEfficiency = currentYTDDD > 0 ? (currentYTDHours / (currentYTDDD / 100)) : 0;
             document.getElementById('kpi-ytd-efficiency').textContent = ytdEfficiency > 0 ? ytdEfficiency.toFixed(1) : '--';
+        }
+
+        // Calculate and display dynamic overview KPIs comparing against historical norms
+        async function updateOverviewKPIs() {
+            if (window.dashboardData.length === 0) return;
+
+            // 1. Fetch Today's Forecast and Expected Usage
+            try {
+                const forecastRes = await fetch('/api/forecast/7day');
+                const forecastData = await forecastRes.json();
+                if (forecastData && forecastData.forecast && forecastData.forecast.length > 0) {
+                    const today = forecastData.forecast[0];
+                    const tempHi = Math.round(today.tmax);
+                    const tempLo = Math.round(today.tmin);
+                    const condition = today.conditions || 'Clear';
+                    const icon = weatherIcons[today.icon] || '🌤️';
+                    const estRuntime = today.predicted_total_mins;
+
+                    document.getElementById('overview-kpi-today-weather').innerHTML = `${icon} ${tempHi}° <span style="font-size: 1.1rem; font-weight: 400; color: var(--text-dim);">/ ${tempLo}°</span>`;
+                    document.getElementById('overview-kpi-today-cond').textContent = condition;
+                    document.getElementById('overview-kpi-today-usage').textContent = estRuntime > 0 ? `${estRuntime}m` : '0m';
+                }
+            } catch (err) {
+                console.error("Error fetching overview today forecast:", err);
+                document.getElementById('overview-kpi-today-weather').textContent = 'Error';
+                document.getElementById('overview-kpi-today-cond').textContent = 'Unable to fetch';
+            }
+
+            // 2. Identify current month and year in the dataset
+            const latestRecord = window.dashboardData[0]; // sorted descending
+            const latestPeriod = latestRecord.period; // e.g. "2026-05"
+            const latestDate = new Date(latestPeriod + '-02');
+            const currentYear = latestDate.getFullYear();
+            const currentMonth = latestDate.getMonth() + 1; // 1-12
+            const monthName = latestDate.toLocaleString('default', { month: 'long' });
+
+            // Monthly Usage calculation
+            const currentMonthHrs = (parseInt(latestRecord.heat_mins || 0) + parseInt(latestRecord.ac_mins || 0)) / 60;
+            document.getElementById('overview-kpi-month-title').textContent = `${monthName} ${currentYear} vs Historical`;
+            document.getElementById('overview-kpi-month-usage').textContent = `${currentMonthHrs.toFixed(1)} hrs`;
+
+            // Calculate historical expected runtime for currentMonth (May)
+            const historicalMonths = window.dashboardData.filter(d => {
+                const date = new Date(d.period + '-02');
+                return date.getMonth() + 1 === currentMonth && date.getFullYear() !== currentYear;
+            });
+
+            if (historicalMonths.length > 0) {
+                const histExpectedHrs = historicalMonths.reduce((acc, d) => acc + (parseInt(d.heat_mins || 0) + parseInt(d.ac_mins || 0)) / 60, 0) / historicalMonths.length;
+                const diffPct = histExpectedHrs > 0 ? ((currentMonthHrs - histExpectedHrs) / histExpectedHrs * 100) : 0;
+                const monthDiffEl = document.getElementById('overview-kpi-month-diff');
+                
+                if (diffPct > 0) {
+                    monthDiffEl.textContent = `+${diffPct.toFixed(1)}%`;
+                    monthDiffEl.style.color = '#ef4444'; // heavier than historical normal is red
+                } else if (diffPct < 0) {
+                    monthDiffEl.textContent = `${diffPct.toFixed(1)}%`;
+                    monthDiffEl.style.color = '#10b981'; // lighter than historical normal is green
+                } else {
+                    monthDiffEl.textContent = '0.0%';
+                    monthDiffEl.style.color = 'var(--text-dim)';
+                }
+                document.getElementById('overview-kpi-month-subtext').textContent = `Hist. Average for ${monthName}: ${histExpectedHrs.toFixed(1)} hrs`;
+            } else {
+                document.getElementById('overview-kpi-month-diff').textContent = '--';
+                document.getElementById('overview-kpi-month-diff').style.color = 'var(--text-dim)';
+                document.getElementById('overview-kpi-month-subtext').textContent = 'No historical baseline for this month';
+            }
+
+            // 3. Annual YTD Usage vs Historical YTD Expected (Jan - CurrentMonth)
+            const currentYearYTDData = window.dashboardData.filter(d => {
+                const date = new Date(d.period + '-02');
+                return date.getFullYear() === currentYear && (date.getMonth() + 1) <= currentMonth;
+            });
+            const currentYTDHrs = currentYearYTDData.reduce((acc, d) => acc + (parseInt(d.heat_mins || 0) + parseInt(d.ac_mins || 0)) / 60, 0);
+            document.getElementById('overview-kpi-year-title').textContent = `${currentYear} YTD vs Historical Normal`;
+            document.getElementById('overview-kpi-year-usage').textContent = `${Math.round(currentYTDHrs)} hrs`;
+
+            // Calculate historical YTD average for Jan-May in previous years
+            const previousYears = [...new Set(window.dashboardData
+                .map(d => new Date(d.period + '-02').getFullYear())
+                .filter(y => y !== currentYear)
+            )];
+
+            let totalHistYTDHrsSum = 0;
+            let validYearsCount = 0;
+
+            previousYears.forEach(prevYr => {
+                const yrYTDData = window.dashboardData.filter(d => {
+                    const date = new Date(d.period + '-02');
+                    return date.getFullYear() === prevYr && (date.getMonth() + 1) <= currentMonth;
+                });
+                
+                // Only consider it a valid baseline if we have full matching data for all months up to the current month in that year
+                if (yrYTDData.length === currentMonth) {
+                    const yrYTDHrs = yrYTDData.reduce((acc, d) => acc + (parseInt(d.heat_mins || 0) + parseInt(d.ac_mins || 0)) / 60, 0);
+                    totalHistYTDHrsSum += yrYTDHrs;
+                    validYearsCount++;
+                }
+            });
+
+            if (validYearsCount > 0) {
+                const histExpectedYTDHrs = totalHistYTDHrsSum / validYearsCount;
+                const diffPct = histExpectedYTDHrs > 0 ? ((currentYTDHrs - histExpectedYTDHrs) / histExpectedYTDHrs * 100) : 0;
+                const yearDiffEl = document.getElementById('overview-kpi-year-diff');
+
+                if (diffPct > 0) {
+                    yearDiffEl.textContent = `+${diffPct.toFixed(1)}%`;
+                    yearDiffEl.style.color = '#ef4444'; // heavier than historical normal is red
+                } else if (diffPct < 0) {
+                    yearDiffEl.textContent = `${diffPct.toFixed(1)}%`;
+                    yearDiffEl.style.color = '#10b981'; // lighter than historical normal is green
+                } else {
+                    yearDiffEl.textContent = '0.0%';
+                    yearDiffEl.style.color = 'var(--text-dim)';
+                }
+                document.getElementById('overview-kpi-year-subtext').textContent = `Historical YTD Normal: ${Math.round(histExpectedYTDHrs)} hrs`;
+            } else {
+                // Fallback if we don't have complete Jan-to-currentMonth data for previous years, just average whatever months are available
+                let fallbackSum = 0;
+                let fallbackCount = 0;
+                previousYears.forEach(prevYr => {
+                    const yrData = window.dashboardData.filter(d => {
+                        const date = new Date(d.period + '-02');
+                        return date.getFullYear() === prevYr && (date.getMonth() + 1) <= currentMonth;
+                    });
+                    if (yrData.length > 0) {
+                        fallbackSum += yrData.reduce((acc, d) => acc + (parseInt(d.heat_mins || 0) + parseInt(d.ac_mins || 0)) / 60, 0);
+                        fallbackCount++;
+                    }
+                });
+
+                if (fallbackCount > 0) {
+                    const histExpectedYTDHrs = fallbackSum / fallbackCount;
+                    const diffPct = histExpectedYTDHrs > 0 ? ((currentYTDHrs - histExpectedYTDHrs) / histExpectedYTDHrs * 100) : 0;
+                    const yearDiffEl = document.getElementById('overview-kpi-year-diff');
+
+                    if (diffPct > 0) {
+                        yearDiffEl.textContent = `+${diffPct.toFixed(1)}%`;
+                        yearDiffEl.style.color = '#ef4444';
+                    } else if (diffPct < 0) {
+                        yearDiffEl.textContent = `${diffPct.toFixed(1)}%`;
+                        yearDiffEl.style.color = '#10b981';
+                    } else {
+                        yearDiffEl.textContent = '0.0%';
+                        yearDiffEl.style.color = 'var(--text-dim)';
+                    }
+                    document.getElementById('overview-kpi-year-subtext').textContent = `Historical Normal (Partial): ${Math.round(histExpectedYTDHrs)} hrs`;
+                } else {
+                    document.getElementById('overview-kpi-year-diff').textContent = '--';
+                    document.getElementById('overview-kpi-year-diff').style.color = 'var(--text-dim)';
+                    document.getElementById('overview-kpi-year-subtext').textContent = 'No historical baseline available';
+                }
+            }
         }
 
 
@@ -597,7 +882,7 @@
                 }
 
                 return `
-                    <div class="premium-card" onclick="openModal('${m.period}')">
+                    <div class="premium-card" onclick="openModal('${m.period}', event)">
                         <div class="card-header">
                             <div>
                                 <span class="year-label">${year}</span>
@@ -778,7 +1063,7 @@
                         if (elements.length > 0) {
                             const index = elements[0].index;
                             const clickedPeriod = filteredData[index].period;
-                            openModal(clickedPeriod);
+                            openModal(clickedPeriod, event.native);
                         }
                     }
                 }
@@ -794,9 +1079,54 @@
 
             const hvacFilter = document.getElementById('trends-hvac-filter').value;
 
+            // Dynamically identify the current/latest month in the database to highlight
+            const latestPeriod = window.dashboardData[0] ? window.dashboardData[0].period : '';
+            const latestYear = latestPeriod ? parseInt(latestPeriod.split('-')[0]) : null;
+            const latestMonth = latestPeriod ? parseInt(latestPeriod.split('-')[1]) : null;
+
+            // Keep track of newly checked years for fade-in baseline transition
+            window.previousTrendsYears = window.previousTrendsYears || [];
+            const newYears = selectedYears.filter(y => !window.previousTrendsYears.includes(y));
+            window.previousTrendsYears = [...selectedYears];
+
+            // Helper to generate point styles that highlight the current month with a prominent star
+            const makePointStyleOptions = (datasetYear, defaultBorderColor) => ({
+                pointStyle: (context) => {
+                    if (context.dataIndex === undefined) return 'circle';
+                    const isCurrent = (datasetYear === latestYear && (context.dataIndex + 1) === latestMonth);
+                    return isCurrent ? 'star' : 'circle';
+                },
+                pointRadius: (context) => {
+                    if (context.dataIndex === undefined) return 3;
+                    const isCurrent = (datasetYear === latestYear && (context.dataIndex + 1) === latestMonth);
+                    return isCurrent ? 12 : 3;
+                },
+                pointHoverRadius: (context) => {
+                    if (context.dataIndex === undefined) return 5;
+                    const isCurrent = (datasetYear === latestYear && (context.dataIndex + 1) === latestMonth);
+                    return isCurrent ? 14 : 5;
+                },
+                pointBackgroundColor: (context) => {
+                    if (context.dataIndex === undefined) return defaultBorderColor;
+                    const isCurrent = (datasetYear === latestYear && (context.dataIndex + 1) === latestMonth);
+                    return isCurrent ? '#f59e0b' : defaultBorderColor;
+                },
+                pointBorderColor: (context) => {
+                    if (context.dataIndex === undefined) return defaultBorderColor;
+                    const isCurrent = (datasetYear === latestYear && (context.dataIndex + 1) === latestMonth);
+                    return isCurrent ? '#fff' : defaultBorderColor;
+                },
+                pointBorderWidth: (context) => {
+                    if (context.dataIndex === undefined) return 1;
+                    const isCurrent = (datasetYear === latestYear && (context.dataIndex + 1) === latestMonth);
+                    return isCurrent ? 2 : 1;
+                }
+            });
+
             // Generate datasets by year (Jan-Dec baseline)
             const usageDatasets = [];
-            const tempDatasets = [];
+            const initialTempDatasets = [];
+            const targetTempDatasets = [];
 
             // Base color palettes for years
             const palette = [
@@ -811,62 +1141,80 @@
 
             selectedYears.forEach((year, index) => {
                 const color = palette[index % palette.length];
-                
+                const isNew = newYears.includes(year);
+
                 // Map data elements to months (1-12), padding missing months with null
                 const yearData = months.map(m => {
                     const periodStr = `${year}-${String(m).padStart(2, '0')}`;
                     return window.dashboardData.find(d => d.period === periodStr) || null;
                 });
 
-                const heatMins = yearData.map(d => d ? (parseInt(d.heat_mins || 0) / 60) : null);
-                const coolMins = yearData.map(d => d ? (parseInt(d.ac_mins || 0) / 60) : null);
+                const showHeat = (hvacFilter === 'all' || hvacFilter === 'heating');
+                const showCool = (hvacFilter === 'all' || hvacFilter === 'cooling');
+
+                const heatMins = yearData.map(d => {
+                    if (!d) return null;
+                    return showHeat ? (parseInt(d.heat_mins || 0) / 60) : 0;
+                });
+                const coolMins = yearData.map(d => {
+                    if (!d) return null;
+                    return showCool ? (parseInt(d.ac_mins || 0) / 60) : 0;
+                });
                 const avgTemps = yearData.map(d => d ? parseFloat(d.avg_temp_outdoor || 0) : null);
 
-                // Add to usage chart
-                if (hvacFilter === 'all' || hvacFilter === 'heating') {
-                    usageDatasets.push({
-                        label: `${year} Heating`,
-                        data: heatMins,
-                        borderColor: color.heat,
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        year: year,
-                        monthsData: yearData
-                    });
-                }
-
-                if (hvacFilter === 'all' || hvacFilter === 'cooling') {
-                    usageDatasets.push({
-                        label: `${year} Cooling`,
-                        data: coolMins,
-                        borderColor: color.cool,
-                        backgroundColor: 'transparent',
-                        borderWidth: 2,
-                        tension: 0.3,
-                        pointRadius: 3,
-                        year: year,
-                        monthsData: yearData
-                    });
-                }
-
-                // Add to temp chart
-                tempDatasets.push({
-                    label: `${year} Outdoor Mean`,
-                    data: avgTemps,
-                    borderColor: color.cool, // using blue hues for temp lines
+                // Add to usage datasets
+                usageDatasets.push({
+                    label: `${year} Heating`,
+                    data: heatMins,
+                    borderColor: showHeat ? color.heat : 'rgba(239, 68, 68, 0)',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
                     tension: 0.3,
-                    pointRadius: 3,
                     year: year,
-                    monthsData: yearData
+                    monthsData: yearData,
+                    ...makePointStyleOptions(year, showHeat ? color.heat : 'rgba(239, 68, 68, 0)')
+                });
+
+                usageDatasets.push({
+                    label: `${year} Cooling`,
+                    data: coolMins,
+                    borderColor: showCool ? color.cool : 'rgba(59, 130, 246, 0)',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    year: year,
+                    monthsData: yearData,
+                    ...makePointStyleOptions(year, showCool ? color.cool : 'rgba(59, 130, 246, 0)')
+                });
+
+                // Add to temp datasets (Initial sits transparently on historical normal, target sits on real values)
+                initialTempDatasets.push({
+                    label: `${year} Outdoor Mean`,
+                    data: isNew ? [...ZIP_HISTORICAL_TEMPS] : avgTemps,
+                    borderColor: isNew ? 'rgba(59, 130, 246, 0)' : color.cool,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    year: year,
+                    monthsData: yearData,
+                    ...makePointStyleOptions(year, isNew ? 'rgba(59, 130, 246, 0)' : color.cool)
+                });
+
+                targetTempDatasets.push({
+                    label: `${year} Outdoor Mean`,
+                    data: avgTemps,
+                    borderColor: color.cool,
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    tension: 0.3,
+                    year: year,
+                    monthsData: yearData,
+                    ...makePointStyleOptions(year, color.cool)
                 });
             });
 
-            // Add historical baseline line to Temperature Chart
-            tempDatasets.push({
+            // Add historical baseline line to Temperature Chart datasets
+            const histBaselineDataset = {
                 label: `Historical Average`,
                 data: ZIP_HISTORICAL_TEMPS,
                 borderColor: 'rgba(255, 255, 255, 0.4)',
@@ -876,97 +1224,163 @@
                 pointRadius: 0,
                 tension: 0.3,
                 order: -1 // draw below others
-            });
+            };
 
-            // Destroy existing instances
-            if (trendsUsageChartInstance) trendsUsageChartInstance.destroy();
-            if (trendsTempChartInstance) trendsTempChartInstance.destroy();
+            initialTempDatasets.push(histBaselineDataset);
+            targetTempDatasets.push(histBaselineDataset);
 
-            // 1. Render Usage Trend Line Chart
-            const ctxUsage = document.getElementById('trendsUsageChart').getContext('2d');
-            trendsUsageChartInstance = new Chart(ctxUsage, {
-                type: 'line',
-                data: {
-                    labels: MONTH_NAMES.map(m => m.substring(0,3)),
-                    datasets: usageDatasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: true, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleFont: { family: 'Outfit' },
-                            bodyFont: { family: 'Inter' }
-                        }
+            // 1. Render/Update Usage Trend Line Chart
+            if (trendsUsageChartInstance) {
+                // Persistent transition update
+                trendsUsageChartInstance.data.datasets = usageDatasets;
+                trendsUsageChartInstance.update();
+            } else {
+                const ctxUsage = document.getElementById('trendsUsageChart').getContext('2d');
+                trendsUsageChartInstance = new Chart(ctxUsage, {
+                    type: 'line',
+                    data: {
+                        labels: MONTH_NAMES.map(m => m.substring(0,3)),
+                        datasets: usageDatasets
                     },
-                    scales: {
-                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'HVAC Hours', color: '#94a3b8' } }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const datasetIndex = elements[0].datasetIndex;
-                            const dataIndex = elements[0].index;
-                            const dataset = usageDatasets[datasetIndex];
-                            const clickedYear = dataset.year;
-                            if (clickedYear) {
-                                const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
-                                if (window.dashboardData.some(d => d.period === clickedPeriod)) {
-                                    openModal(clickedPeriod);
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                titleFont: { family: 'Outfit' },
+                                bodyFont: { family: 'Inter' }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+                            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'HVAC Hours', color: '#94a3b8' } }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const datasetIndex = elements[0].datasetIndex;
+                                const dataIndex = elements[0].index;
+                                const dataset = trendsUsageChartInstance.data.datasets[datasetIndex];
+                                const clickedYear = dataset.year;
+                                if (clickedYear) {
+                                    const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
+                                    if (window.dashboardData.some(d => d.period === clickedPeriod)) {
+                                        openModal(clickedPeriod, event.native);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+            }
 
-            // 2. Render Temp Trend Line Chart
-            const ctxTemp = document.getElementById('trendsTempChart').getContext('2d');
-            trendsTempChartInstance = new Chart(ctxTemp, {
-                type: 'line',
-                data: {
-                    labels: MONTH_NAMES.map(m => m.substring(0,3)),
-                    datasets: tempDatasets
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: true, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleFont: { family: 'Outfit' },
-                            bodyFont: { family: 'Inter' }
-                        }
+            // 2. Render/Update Temp Trend Line Chart
+            if (trendsTempChartInstance) {
+                // First draw transparent baseline on top of historical average
+                trendsTempChartInstance.data.datasets = initialTempDatasets;
+                trendsTempChartInstance.update('none');
+
+                // Immediately trigger transition to year's specific charted temperatures
+                requestAnimationFrame(() => {
+                    if (trendsTempChartInstance) {
+                        trendsTempChartInstance.data.datasets = targetTempDatasets;
+                        trendsTempChartInstance.update();
+                    }
+                });
+            } else {
+                const ctxTemp = document.getElementById('trendsTempChart').getContext('2d');
+                trendsTempChartInstance = new Chart(ctxTemp, {
+                    type: 'line',
+                    data: {
+                        labels: MONTH_NAMES.map(m => m.substring(0,3)),
+                        datasets: initialTempDatasets
                     },
-                    scales: {
-                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Temperature (°F)', color: '#94a3b8' } }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const datasetIndex = elements[0].datasetIndex;
-                            const dataIndex = elements[0].index;
-                            const dataset = tempDatasets[datasetIndex];
-                            const clickedYear = dataset.year;
-                            if (clickedYear) {
-                                const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
-                                if (window.dashboardData.some(d => d.period === clickedPeriod)) {
-                                    openModal(clickedPeriod);
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                titleFont: { family: 'Outfit' },
+                                bodyFont: { family: 'Inter' }
+                            }
+                        },
+                        scales: {
+                            x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+                            y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Temperature (°F)', color: '#94a3b8' } }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const datasetIndex = elements[0].datasetIndex;
+                                const dataIndex = elements[0].index;
+                                const dataset = trendsTempChartInstance.data.datasets[datasetIndex];
+                                const clickedYear = dataset.year;
+                                if (clickedYear) {
+                                    const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
+                                    if (window.dashboardData.some(d => d.period === clickedPeriod)) {
+                                        openModal(clickedPeriod, event.native);
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            });
+                });
+
+                requestAnimationFrame(() => {
+                    if (trendsTempChartInstance) {
+                        trendsTempChartInstance.data.datasets = targetTempDatasets;
+                        trendsTempChartInstance.update();
+                    }
+                });
+            }
         }
 
         // 3. Efficiency Tab: Scatter Plot with Linear Regression (Degree Days vs. HVAC Load)
         function renderEfficiencyChart() {
             const compareType = document.getElementById('scatter-type-select').value;
             
+            // Dynamically identify the latest month to highlight
+            const latestPeriod = window.dashboardData[0] ? window.dashboardData[0].period : '';
+
+            // Helper to generate scatter point styles that highlight the current month with a prominent star
+            const makeScatterPointOptions = (defaultBgColor, isActive) => ({
+                pointStyle: (context) => {
+                    if (!context || !context.raw) return 'circle';
+                    const pt = context.raw;
+                    return (pt && pt.period === latestPeriod && isActive) ? 'star' : 'circle';
+                },
+                pointRadius: (context) => {
+                    if (!context || !context.raw) return 6;
+                    const pt = context.raw;
+                    return (pt && pt.period === latestPeriod && isActive) ? 12 : 6;
+                },
+                pointHoverRadius: (context) => {
+                    if (!context || !context.raw) return 8;
+                    const pt = context.raw;
+                    return (pt && pt.period === latestPeriod && isActive) ? 14 : 8;
+                },
+                pointBackgroundColor: (context) => {
+                    if (!context || !context.raw) return defaultBgColor;
+                    if (!isActive) return 'transparent';
+                    const pt = context.raw;
+                    return (pt && pt.period === latestPeriod) ? '#f59e0b' : defaultBgColor;
+                },
+                pointBorderColor: (context) => {
+                    if (!context || !context.raw) return defaultBgColor;
+                    if (!isActive) return 'transparent';
+                    const pt = context.raw;
+                    return (pt && pt.period === latestPeriod) ? '#fff' : 'rgba(255, 255, 255, 0.15)';
+                },
+                pointBorderWidth: (context) => {
+                    if (!context || !context.raw) return 0;
+                    if (!isActive) return 0;
+                    const pt = context.raw;
+                    return (pt && pt.period === latestPeriod) ? 2 : 0;
+                }
+            });
+
             // Build dataset
             const heatingPoints = [];
             const coolingPoints = [];
@@ -985,6 +1399,24 @@
                     coolingPoints.push({ x: cdd, y: coolHrs, period: m.period });
                 }
             });
+
+            // Sort datasets chronologically so context.dataIndex Animates Oldest to Newest
+            heatingPoints.sort((a, b) => a.period.localeCompare(b.period));
+            coolingPoints.sort((a, b) => a.period.localeCompare(b.period));
+
+            // Compute active maxX dynamically for smart dynamic X-axis zooming
+            let maxX = 100;
+            if (compareType === 'all') {
+                const allX = [...heatingPoints.map(p => p.x), ...coolingPoints.map(p => p.x)];
+                if (allX.length > 0) maxX = Math.max(...allX);
+            } else if (compareType === 'heating') {
+                const allX = heatingPoints.map(p => p.x);
+                if (allX.length > 0) maxX = Math.max(...allX);
+            } else if (compareType === 'cooling') {
+                const allX = coolingPoints.map(p => p.x);
+                if (allX.length > 0) maxX = Math.max(...allX);
+            }
+            const paddedMaxX = Math.ceil(maxX * 1.05);
 
             // Helper to calculate linear regression
             function getRegressionLine(points) {
@@ -1009,119 +1441,143 @@
                 ];
             }
 
-            const datasets = [];
+            const showHeating = (compareType === 'all' || compareType === 'heating');
+            const showCooling = (compareType === 'all' || compareType === 'cooling');
 
-            if (compareType === 'all' || compareType === 'heating') {
-                datasets.push({
+            const heatRegression = getRegressionLine(heatingPoints) || [];
+            const coolRegression = getRegressionLine(coolingPoints) || [];
+
+            const datasets = [
+                // 0. Heating Points
+                {
                     label: 'Heating Season (HDD vs Heat Hrs)',
-                    data: heatingPoints,
-                    backgroundColor: 'rgba(239, 68, 68, 0.75)',
-                    borderColor: 'rgba(239, 68, 68, 0.3)',
-                    pointRadius: 6,
-                    pointHoverRadius: 8
-                });
-
-                const heatRegression = getRegressionLine(heatingPoints);
-                if (heatRegression) {
-                    datasets.push({
-                        label: 'Heating Energy Signature (TrendLine)',
-                        data: heatRegression,
-                        type: 'line',
-                        borderColor: '#ef4444',
-                        borderWidth: 2,
-                        backgroundColor: 'transparent',
-                        pointRadius: 0,
-                        fill: false
-                    });
-                }
-            }
-
-            if (compareType === 'all' || compareType === 'cooling') {
-                datasets.push({
+                    data: showHeating ? heatingPoints : heatingPoints.map(p => ({ x: p.x, y: 0, period: p.period })),
+                    backgroundColor: showHeating ? 'rgba(239, 68, 68, 0.75)' : 'rgba(239, 68, 68, 0)',
+                    borderColor: showHeating ? 'rgba(239, 68, 68, 0.3)' : 'rgba(239, 68, 68, 0)',
+                    ...makeScatterPointOptions('rgba(239, 68, 68, 0.75)', showHeating)
+                },
+                // 1. Heating Regression Line
+                {
+                    label: 'Heating Energy Signature (TrendLine)',
+                    data: showHeating ? heatRegression : heatRegression.map(p => ({ x: p.x, y: 0 })),
+                    type: 'line',
+                    borderColor: showHeating ? '#ef4444' : 'rgba(239, 68, 68, 0)',
+                    borderWidth: 2,
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    fill: false
+                },
+                // 2. Cooling Points
+                {
                     label: 'Cooling Season (CDD vs Cool Hrs)',
-                    data: coolingPoints,
-                    backgroundColor: 'rgba(59, 130, 246, 0.75)',
-                    borderColor: 'rgba(59, 130, 246, 0.3)',
-                    pointRadius: 6,
-                    pointHoverRadius: 8
-                });
-
-                const coolRegression = getRegressionLine(coolingPoints);
-                if (coolRegression) {
-                    datasets.push({
-                        label: 'Cooling Energy Signature (TrendLine)',
-                        data: coolRegression,
-                        type: 'line',
-                        borderColor: '#3b82f6',
-                        borderWidth: 2,
-                        backgroundColor: 'transparent',
-                        pointRadius: 0,
-                        fill: false
-                    });
+                    data: showCooling ? coolingPoints : coolingPoints.map(p => ({ x: p.x, y: 0, period: p.period })),
+                    backgroundColor: showCooling ? 'rgba(59, 130, 246, 0.75)' : 'rgba(59, 130, 246, 0)',
+                    borderColor: showCooling ? 'rgba(59, 130, 246, 0.3)' : 'rgba(59, 130, 246, 0)',
+                    ...makeScatterPointOptions('rgba(59, 130, 246, 0.75)', showCooling)
+                },
+                // 3. Cooling Regression Line
+                {
+                    label: 'Cooling Energy Signature (TrendLine)',
+                    data: showCooling ? coolRegression : coolRegression.map(p => ({ x: p.x, y: 0 })),
+                    type: 'line',
+                    borderColor: showCooling ? '#3b82f6' : 'rgba(59, 130, 246, 0)',
+                    borderWidth: 2,
+                    backgroundColor: 'transparent',
+                    pointRadius: 0,
+                    fill: false
                 }
-            }
+            ];
 
             if (efficiencyScatterChartInstance) {
-                efficiencyScatterChartInstance.destroy();
-            }
-
-            const ctx = document.getElementById('efficiencyScatterChart').getContext('2d');
-            efficiencyScatterChartInstance = new Chart(ctx, {
-                type: 'scatter',
-                data: { datasets: datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { labels: { color: '#94a3b8', font: { family: 'Inter', weight: '500' } } },
-                        tooltip: {
-                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                            titleFont: { family: 'Outfit' },
-                            bodyFont: { family: 'Inter' },
-                            callbacks: {
-                                label: (context) => {
-                                    const pt = context.raw;
-                                    if (pt.period) {
-                                        const d = new Date(pt.period + '-02');
-                                        const mName = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-                                        return `${mName}: ${Math.round(pt.x)} DD, ${pt.y.toFixed(1)} Hrs Runtime`;
+                efficiencyScatterChartInstance.data.datasets = datasets;
+                efficiencyScatterChartInstance.options.scales.x.max = paddedMaxX;
+                efficiencyScatterChartInstance.update();
+            } else {
+                const ctx = document.getElementById('efficiencyScatterChart').getContext('2d');
+                efficiencyScatterChartInstance = new Chart(ctx, {
+                    type: 'scatter',
+                    data: { datasets: datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: {
+                            delay: (context) => {
+                                if (context.type === 'data' && context.mode === 'default') {
+                                    return context.dataIndex * 40;
+                                }
+                                return 0;
+                            }
+                        },
+                        plugins: {
+                            legend: { labels: { color: '#94a3b8', font: { family: 'Inter', weight: '500' } } },
+                            tooltip: {
+                                backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                                titleFont: { family: 'Outfit' },
+                                bodyFont: { family: 'Inter' },
+                                callbacks: {
+                                    label: (context) => {
+                                        const pt = context.raw;
+                                        if (pt.period) {
+                                            const d = new Date(pt.period + '-02');
+                                            const mName = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+                                            return `${mName}: ${Math.round(pt.x)} DD, ${pt.y.toFixed(1)} Hrs Runtime`;
+                                        }
+                                        return `Regression Point: ${Math.round(pt.x)} DD, ${pt.y.toFixed(1)} Hrs`;
                                     }
-                                    return `Regression Point: ${Math.round(pt.x)} DD, ${pt.y.toFixed(1)} Hrs`;
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                min: 0,
+                                max: paddedMaxX,
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                ticks: { color: '#94a3b8' },
+                                title: { display: true, text: 'Total Degree Days (DD)', color: '#94a3b8', font: { weight: '600' } }
+                            },
+                            y: {
+                                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                                ticks: { color: '#94a3b8' },
+                                title: { display: true, text: 'HVAC Runtime (Hours)', color: '#94a3b8', font: { weight: '600' } }
+                            }
+                        },
+                        onClick: (event, elements) => {
+                            if (elements.length > 0) {
+                                const datasetIndex = elements[0].datasetIndex;
+                                const elementIndex = elements[0].index;
+                                const point = efficiencyScatterChartInstance.data.datasets[datasetIndex].data[elementIndex];
+                                if (point && point.period) {
+                                    openModal(point.period, event.native);
                                 }
                             }
                         }
-                    },
-                    scales: {
-                        x: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#94a3b8' },
-                            title: { display: true, text: 'Total Degree Days (DD)', color: '#94a3b8', font: { weight: '600' } }
-                        },
-                        y: {
-                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#94a3b8' },
-                            title: { display: true, text: 'HVAC Runtime (Hours)', color: '#94a3b8', font: { weight: '600' } }
-                        }
-                    },
-                    onClick: (event, elements) => {
-                        if (elements.length > 0) {
-                            const datasetIndex = elements[0].datasetIndex;
-                            const elementIndex = elements[0].index;
-                            const point = datasets[datasetIndex].data[elementIndex];
-                            if (point && point.period) {
-                                openModal(point.period);
-                            }
-                        }
                     }
-                }
-            });
+                });
+            }
         }
 
         // Modal Functionality
-        function openModal(period) {
+        function openModal(period, event = null) {
             window.activeModalPeriod = period;
             const m = window.dashboardData.find(d => d.period === period);
             if (!m) return;
+
+            // Compute expand transform coordinates relative to viewport center
+            const container = document.querySelector('.modal-container');
+            if (event) {
+                const clickX = event.clientX || event.pageX || (event.touches && event.touches[0].clientX);
+                const clickY = event.clientY || event.pageY || (event.touches && event.touches[0].clientY);
+                
+                if (clickX !== undefined && clickY !== undefined) {
+                    const screenCenterX = window.innerWidth / 2;
+                    const screenCenterY = window.innerHeight / 2;
+                    const translateX = clickX - screenCenterX;
+                    const translateY = clickY - screenCenterY;
+                    
+                    container.style.setProperty('--translateX', `${translateX}px`);
+                    container.style.setProperty('--translateY', `${translateY}px`);
+                }
+            }
 
             const date = new Date(m.period + '-02');
             const monthName = date.toLocaleString('default', { month: 'long' });
@@ -1455,6 +1911,223 @@
 
         function toggleYear(year) {
             document.getElementById('year-' + year).classList.toggle('open');
+        }
+
+        // --- Forecast Tab Logic ---
+        
+        let forecastTempChartInstance = null;
+        let forecastEnergyChartInstance = null;
+
+        const weatherIcons = {
+            'clear-day': '☀️',
+            'clear-night': '🌙',
+            'partly-cloudy-day': '⛅',
+            'partly-cloudy-night': '☁️',
+            'cloudy': '☁️',
+            'rain': '🌧️',
+            'snow': '❄️',
+            'sleet': '🌨️',
+            'wind': '🌬️',
+            'fog': '🌫️'
+        };
+
+        async function loadForecast() {
+            const loader = document.getElementById('forecast-loader');
+            const grid = document.getElementById('forecast-grid');
+            const alerts = document.getElementById('forecast-alerts');
+            const charts = document.getElementById('forecast-charts-container');
+            
+            loader.style.display = 'block';
+            grid.innerHTML = '';
+            alerts.innerHTML = '';
+            charts.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/forecast/7day');
+                const data = await response.json();
+                
+                loader.style.display = 'none';
+                
+                if (!data || !data.forecast || data.forecast.length === 0) {
+                    grid.innerHTML = '<div class="empty-state">Unable to load forecast data.</div>';
+                    return;
+                }
+
+                // Check for Pre-Conditioning Alert
+                const hasPreConditioning = data.forecast.some(d => d.pre_conditioning);
+                if (hasPreConditioning) {
+                    alerts.innerHTML = `
+                        <div class="forecast-alert">
+                            <div class="forecast-alert-icon">⚠️</div>
+                            <div class="forecast-alert-content">
+                                <h4>Extreme Weather Warning</h4>
+                                <p>We've detected an upcoming extreme weather event in the 7-day forecast. Pre-conditioning your home during off-peak hours is recommended to maintain comfort and reduce strain on your HVAC system.</p>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                renderForecastGrid(data.forecast);
+                renderForecastCharts(data.forecast);
+                charts.style.display = 'block';
+
+            } catch (err) {
+                console.error(err);
+                loader.style.display = 'none';
+                grid.innerHTML = `<div class="empty-state">Error loading forecast: ${err.message}</div>`;
+            }
+        }
+
+        function renderForecastGrid(days) {
+            const grid = document.getElementById('forecast-grid');
+            grid.innerHTML = days.map(d => {
+                const dateObj = new Date(d.date + 'T12:00:00');
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                const icon = weatherIcons[d.icon] || '🌤️';
+                
+                let strategyClass = 'strategy-auto';
+                if (d.recommended_mode === 'Off') strategyClass = 'strategy-off';
+                if (d.recommended_mode === 'Heat') strategyClass = 'strategy-heat';
+                if (d.recommended_mode === 'Cool') strategyClass = 'strategy-cool';
+                
+                let strategyText = d.recommended_mode === 'Off' ? 'Turn System Off' : `${d.recommended_mode} to ${d.recommended_setpoint}°F`;
+
+                return `
+                    <div class="forecast-card">
+                        <!-- Section A: Weather Prediction -->
+                        <div class="forecast-section">
+                            <div class="forecast-date">${dayName}</div>
+                            <div class="weather-block">
+                                <div class="weather-icon-temp">
+                                    <div class="weather-icon">${icon}</div>
+                                    <div class="weather-temps">
+                                        <span class="temp-hi">${Math.round(d.tmax)}°</span>
+                                        <span class="temp-lo">${Math.round(d.tmin)}°</span>
+                                    </div>
+                                </div>
+                                <div class="weather-stats">
+                                    <span>💧 ${Math.round(d.humidity)}% Hum</span>
+                                    <span>☁️ ${Math.round(d.cloudcover || 0)}% Cloud</span>
+                                    <span>☔ ${Math.round(d.precipprob || 0)}% Rain</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Section B: Environmental Demand -->
+                        <div class="forecast-section" style="background: rgba(0,0,0,0.1);">
+                            <div class="demand-block">
+                                <div class="demand-stat">
+                                    <span class="demand-val" style="color: #ef4444;">${Math.round(d.hdd)}</span>
+                                    <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Heating DD</span>
+                                </div>
+                                <div class="demand-stat">
+                                    <span class="demand-val" style="color: #3b82f6;">${Math.round(d.cdd)}</span>
+                                    <span style="font-size: 0.75rem; color: var(--text-dim); text-transform: uppercase;">Cooling DD</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Section C: Smart Strategy & Projection -->
+                        <div class="forecast-section">
+                            <div class="strategy-block">
+                                <div class="strategy-badge ${strategyClass}">${strategyText}</div>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-dim); margin-top: 5px;">
+                                    <span>🔥 Est. Heat: ${Math.round(d.predicted_heat_mins)} mins</span>
+                                    <span>❄️ Est. Cool: ${Math.round(d.predicted_ac_mins)} mins</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderForecastCharts(days) {
+            const labels = days.map(d => {
+                const dateObj = new Date(d.date + 'T12:00:00');
+                return dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+            });
+
+            // Temperature Chart
+            if (forecastTempChartInstance) forecastTempChartInstance.destroy();
+
+            const comfortBandPlugin = {
+                id: 'comfortBand',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const yAxis = chart.scales.y;
+                    const xAxis = chart.scales.x;
+                    const chartArea = chart.chartArea;
+                    
+                    if (!yAxis || !xAxis || !chartArea) return;
+
+                    const topY = yAxis.getPixelForValue(79);
+                    const bottomY = yAxis.getPixelForValue(62);
+                    
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+                    ctx.clip();
+                    
+                    ctx.fillStyle = 'rgba(16, 185, 129, 0.15)'; 
+                    ctx.fillRect(xAxis.left, topY, xAxis.width, bottomY - topY);
+                    
+                    ctx.strokeStyle = 'rgba(16, 185, 129, 0.5)';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(xAxis.left, topY);
+                    ctx.lineTo(xAxis.right, topY);
+                    ctx.moveTo(xAxis.left, bottomY);
+                    ctx.lineTo(xAxis.right, bottomY);
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                }
+            };
+
+            const ctxTemp = document.getElementById('forecastTempChart').getContext('2d');
+            forecastTempChartInstance = new Chart(ctxTemp, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'High Temp', data: days.map(d => d.tmax), borderColor: '#ef4444', backgroundColor: 'transparent', tension: 0.3 },
+                        { label: 'Low Temp', data: days.map(d => d.tmin), borderColor: '#3b82f6', backgroundColor: 'transparent', tension: 0.3 },
+                        { label: 'Avg Temp', data: days.map(d => d.temp_avg), borderColor: '#10b981', borderDash: [5, 5], backgroundColor: 'transparent', tension: 0.3 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Temperature (°F)', color: '#94a3b8' } }
+                    }
+                },
+                plugins: [comfortBandPlugin]
+            });
+
+            // Energy Chart
+            if (forecastEnergyChartInstance) forecastEnergyChartInstance.destroy();
+            const ctxEnergy = document.getElementById('forecastEnergyChart').getContext('2d');
+            forecastEnergyChartInstance = new Chart(ctxEnergy, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Est. Heating (Mins)', data: days.map(d => d.predicted_heat_mins), backgroundColor: 'rgba(239, 68, 68, 0.8)', stack: 'energy' },
+                        { label: 'Est. Cooling (Mins)', data: days.map(d => d.predicted_ac_mins), backgroundColor: 'rgba(59, 130, 246, 0.8)', stack: 'energy' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'HVAC Runtime (Mins)', color: '#94a3b8' } }
+                    }
+                }
+            });
         }
 
         // Launch Dashboard

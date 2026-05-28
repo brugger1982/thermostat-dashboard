@@ -71,10 +71,163 @@ app.get('/api/cron/sync-weather', async (req, res) => {
     }
 });
 
+app.get('/api/cron/sync-forecast', async (req, res) => {
+    try {
+        const count = await weather.syncForecast();
+        res.send(`OK: Synced ${count} days`);
+    } catch (err) {
+        console.error("❌ Forecast Sync Error:", err);
+        res.status(500).send(err.message);
+    }
+});
+
 app.get('/api/weather/monthly', async (req, res) => {
     try {
         const data = await weather.getMonthlyTotals();
         res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/forecast/7day', async (req, res) => {
+    try {
+        // 1. Fetch forecast days
+        let forecastRes = await weather.pool.query(`
+            SELECT 
+                TO_CHAR(date, 'YYYY-MM-DD') as date,
+                hdd::float as hdd, 
+                cdd::float as cdd, 
+                tmax::float as tmax, 
+                tmin::float as tmin, 
+                temp_avg::float as temp_avg, 
+                humidity::float as humidity, 
+                solar_rad::float as solar_rad, 
+                wind_speed::float as wind_speed,
+                icon,
+                cloudcover::float as cloudcover,
+                precip::float as precip,
+                precipprob::float as precipprob,
+                conditions
+            FROM weather_forecast
+            WHERE date >= CURRENT_DATE
+            ORDER BY date ASC
+            LIMIT 7
+        `);
+
+        if (forecastRes.rows.length === 0) {
+            console.log("DEBUG: No forecast in database. Performing automatic on-the-fly sync...");
+            await weather.syncForecast();
+            forecastRes = await weather.pool.query(`
+                SELECT 
+                    TO_CHAR(date, 'YYYY-MM-DD') as date,
+                    hdd::float as hdd, 
+                    cdd::float as cdd, 
+                    tmax::float as tmax, 
+                    tmin::float as tmin, 
+                    temp_avg::float as temp_avg, 
+                    humidity::float as humidity, 
+                    solar_rad::float as solar_rad, 
+                    wind_speed::float as wind_speed,
+                    icon,
+                    cloudcover::float as cloudcover,
+                    precip::float as precip,
+                    precipprob::float as precipprob,
+                    conditions
+                FROM weather_forecast
+                WHERE date >= CURRENT_DATE
+                ORDER BY date ASC
+                LIMIT 7
+            `);
+        }
+
+        // 2. Fetch efficiency multiplier and setpoints
+        const effRes = await weather.pool.query(`SELECT * FROM v_recent_efficiency LIMIT 1`);
+        const eff = effRes.rows[0] || {
+            heat_efficiency: 30.0,
+            cool_efficiency: 45.0,
+            heat_target_f: 68.0,
+            cool_target_f: 74.0
+        };
+
+        // Ensure columns are floats/numbers
+        const heatEff = parseFloat(eff.heat_efficiency);
+        const coolEff = parseFloat(eff.cool_efficiency);
+        const heatTarget = parseFloat(eff.heat_target_f);
+        const coolTarget = parseFloat(eff.cool_target_f);
+
+        // 3. Process recommendations and predictions
+        const days = forecastRes.rows.map(day => {
+            const predictedHeatMins = Math.round(day.hdd * heatEff);
+            const predictedAcMins = Math.round(day.cdd * coolEff);
+            
+            let recommendedMode = 'Off';
+            let recommendedSetpoint = null;
+            let reason = 'Weather is within the 62-79°F comfort band. System can be turned off.';
+
+            if (day.tmin >= 62 && day.tmax <= 79) {
+                recommendedMode = 'Off';
+                recommendedSetpoint = null;
+                reason = 'Milder temperatures expected. Perfect weather to turn the thermostat Off to save energy.';
+            } else if (day.hdd > 0 && day.cdd === 0) {
+                recommendedMode = 'Heat';
+                recommendedSetpoint = heatTarget;
+                reason = `Heating is likely needed (low of ${day.tmin}°F). Recommend Heat mode at ${heatTarget}°F.`;
+            } else if (day.cdd > 0 && day.hdd === 0) {
+                recommendedMode = 'Cool';
+                recommendedSetpoint = coolTarget;
+                reason = `Cooling is likely needed (high of ${day.tmax}°F). Recommend Cool mode at ${coolTarget}°F.`;
+            } else {
+                recommendedMode = 'Auto';
+                recommendedSetpoint = { heat: heatTarget, cool: coolTarget };
+                reason = `Wide daily temperature range (${day.tmin}°F to ${day.tmax}°F). Recommend Auto/Eco mode.`;
+            }
+
+            return {
+                date: day.date,
+                temp_avg: day.temp_avg,
+                tmax: day.tmax,
+                tmin: day.tmin,
+                humidity: day.humidity,
+                solar_rad: day.solar_rad,
+                wind_speed: day.wind_speed,
+                icon: day.icon,
+                cloudcover: day.cloudcover,
+                precip: day.precip,
+                precipprob: day.precipprob,
+                hdd: day.hdd,
+                cdd: day.cdd,
+                predicted_heat_mins: predictedHeatMins,
+                predicted_ac_mins: predictedAcMins,
+                predicted_total_mins: predictedHeatMins + predictedAcMins,
+                recommended_mode: recommendedMode,
+                recommended_setpoint: recommendedSetpoint,
+                reason: reason,
+                pre_conditioning: null
+            };
+        });
+
+        // 4. Add Pre-conditioning Logic looking ahead (Day i looks at Day i+1)
+        for (let i = 0; i < days.length - 1; i++) {
+            const currentDay = days[i];
+            const nextDay = days[i + 1];
+
+            if (nextDay.tmax >= 88 && currentDay.tmin < 72) {
+                currentDay.pre_conditioning = `Tomorrow will be extremely hot (high of ${nextDay.tmax}°F). Since tonight will be a cooler ${currentDay.tmin}°F, we recommend pre-cooling your home overnight or opening windows in the evening to store cooler air, reducing AC stress tomorrow.`;
+            } else if (nextDay.tmin <= 25) {
+                currentDay.pre_conditioning = `Tomorrow will be extremely cold (low of ${nextDay.tmin}°F). We recommend pre-heating your home slightly above your standard setpoint during the afternoon today to store thermal energy and reduce strain on your heating system during peak morning freeze hours.`;
+            }
+        }
+
+        res.json({
+            efficiency_used: {
+                heat_efficiency_mins_per_hdd: heatEff,
+                cool_efficiency_mins_per_cdd: coolEff,
+                heat_target_f: heatTarget,
+                cool_target_f: coolTarget
+            },
+            forecast: days
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -168,6 +321,25 @@ app.listen(PORT, async () => {
                 value TEXT NOT NULL
             )
         `);
+        await weather.pool.query(`
+            CREATE TABLE IF NOT EXISTS weather_forecast (
+                date DATE PRIMARY KEY,
+                hdd NUMERIC,
+                cdd NUMERIC,
+                tmax NUMERIC,
+                tmin NUMERIC,
+                temp_avg NUMERIC,
+                humidity NUMERIC,
+                solar_rad NUMERIC,
+                wind_speed NUMERIC,
+                last_updated TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS icon VARCHAR');
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS cloudcover NUMERIC');
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS precip NUMERIC');
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS precipprob NUMERIC');
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS conditions VARCHAR');
         console.log("✅ Database schema verified.");
         
         // Load Nest Token from DB
