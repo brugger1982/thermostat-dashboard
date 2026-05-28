@@ -194,6 +194,35 @@
                 if (maxGlobalCoolHrs === 0) maxGlobalCoolHrs = 1;
                 if (maxGlobalHeatHrs === 0) maxGlobalHeatHrs = 1;
 
+                // 1.5 Calculate historical means and standard deviations for Option B Z-score
+                const heatingRatios = [];
+                const coolingRatios = [];
+                data.forEach(m => {
+                    const cdd = parseFloat(m.total_cdd || 0);
+                    const hdd = parseFloat(m.total_hdd || 0);
+                    const coolHrs = parseInt(m.ac_mins || 0) / 60;
+                    const heatHrs = parseInt(m.heat_mins || 0) / 60;
+                    const totalDD = cdd + hdd;
+                    if (totalDD > 50) {
+                        if (cdd > hdd) {
+                            coolingRatios.push(coolHrs / (cdd / 100));
+                        } else {
+                            heatingRatios.push(heatHrs / (hdd / 100));
+                        }
+                    }
+                });
+
+                function getStats(arr) {
+                    const valid = arr.filter(v => v !== null && !isNaN(v));
+                    if (valid.length === 0) return { mean: 0, stdDev: 1 };
+                    const mean = valid.reduce((a, b) => a + b, 0) / valid.length;
+                    const variance = valid.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / valid.length;
+                    return { mean, stdDev: Math.sqrt(variance) || 1 };
+                }
+
+                const heatStats = getStats(heatingRatios);
+                const coolStats = getStats(coolingRatios);
+
                 // 2. Render Cards with Relative Scaling
                 container.innerHTML = data.map(m => {
                     const date = new Date(m.period + '-02');
@@ -226,8 +255,39 @@
 
                     let effClass = 'eff-low';
                     let effLabel = 'Efficient';
-                    if (currentDailyAvg > 5) { effClass = 'eff-high'; effLabel = 'Heavy Load'; }
-                    else if (currentDailyAvg > 2) { effClass = 'eff-mid'; effLabel = 'Moderate'; }
+
+                    if (totalDD <= 50) {
+                        // Shoulder/transitional month: use absolute daily runtime baseline
+                        if (currentDailyAvg > 3) {
+                            effClass = 'eff-high';
+                            effLabel = 'Heavy Load';
+                        } else if (currentDailyAvg > 1.5) {
+                            effClass = 'eff-mid';
+                            effLabel = 'Moderate';
+                        }
+                    } else if (cdd > hdd) {
+                        // Cooling-dominated month (Z-score benchmark)
+                        const hrsPer100CDD = coolHrs / (cdd / 100);
+                        const z = (hrsPer100CDD - coolStats.mean) / coolStats.stdDev;
+                        if (z > 0.5) {
+                            effClass = 'eff-high';
+                            effLabel = 'Heavy Load';
+                        } else if (z > -0.5) {
+                            effClass = 'eff-mid';
+                            effLabel = 'Moderate';
+                        }
+                    } else {
+                        // Heating-dominated month (Z-score benchmark)
+                        const hrsPer100HDD = heatHrs / (hdd / 100);
+                        const z = (hrsPer100HDD - heatStats.mean) / heatStats.stdDev;
+                        if (z > 0.5) {
+                            effClass = 'eff-high';
+                            effLabel = 'Heavy Load';
+                        } else if (z > -0.5) {
+                            effClass = 'eff-mid';
+                            effLabel = 'Moderate';
+                        }
+                    }
 
                     return `
                         <div class="premium-card">
