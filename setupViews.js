@@ -89,7 +89,7 @@ WITH recent_stats AS (
         AVG(CASE WHEN t.ac_mins > 0 THEN t.avg_setpoint END) as avg_cool_setpoint
     FROM thermostat_runtime t
     JOIN weather_daily d ON d.date = t.date
-    WHERE t.date >= CURRENT_DATE - INTERVAL '30 days'
+    WHERE t.date >= CURRENT_DATE - INTERVAL '30 days' AND t.sample_count > 0
 ),
 fallback_stats AS (
     SELECT 
@@ -101,7 +101,7 @@ fallback_stats AS (
         AVG(CASE WHEN t.ac_mins > 0 THEN t.avg_setpoint END) as avg_cool_setpoint
     FROM thermostat_runtime t
     JOIN weather_daily d ON d.date = t.date
-    WHERE t.date >= CURRENT_DATE - INTERVAL '90 days'
+    WHERE t.date >= CURRENT_DATE - INTERVAL '90 days' AND t.sample_count > 0
 )
 SELECT 
     ROUND(

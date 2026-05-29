@@ -158,29 +158,54 @@ app.get('/api/forecast/7day', async (req, res) => {
 
         // 3. Process recommendations and predictions
         const days = forecastRes.rows.map(day => {
-            const predictedHeatMins = Math.round(day.hdd * heatEff);
-            const predictedAcMins = Math.round(day.cdd * coolEff);
+            const hddVal = parseFloat(day.hdd) || 0;
+            const cddVal = parseFloat(day.cdd) || 0;
+
+            // Non-linear Heating runtime prediction
+            let predictedHeatMins = 0;
+            if (hddVal < 0.6) {
+                predictedHeatMins = 0;
+            } else if (hddVal < 5.0) {
+                // Buffer band: mild weather with very low runtime probability (~15% scale)
+                predictedHeatMins = Math.round(hddVal * heatEff * 0.15);
+            } else {
+                // Sustained heating
+                predictedHeatMins = Math.round(hddVal * heatEff);
+            }
+
+            // Non-linear Cooling runtime prediction
+            let predictedAcMins = 0;
+            if (cddVal < 0.3) {
+                predictedAcMins = 0;
+            } else if (cddVal < 3.0) {
+                // Buffer band: mild-to-warm weather with low runtime probability (~35% scale)
+                predictedAcMins = Math.round(cddVal * coolEff * 0.35);
+            } else {
+                // Sustained cooling
+                predictedAcMins = Math.round(cddVal * coolEff);
+            }
             
             let recommendedMode = 'Off';
             let recommendedSetpoint = null;
-            let reason = 'Weather is within the 62-79°F comfort band. System can be turned off.';
+            let reason = 'Weather is within the natural comfort band. Thermostat can be safely turned off.';
 
-            if (day.tmin >= 62 && day.tmax <= 79) {
+            // Dynamic Comfort Dead-Band Check: HDD < 5.0 and CDD < 3.0 (corresponds to ~60°F - 68°F daily average temp)
+            if (hddVal < 5.0 && cddVal < 3.0) {
                 recommendedMode = 'Off';
                 recommendedSetpoint = null;
-                reason = 'Milder temperatures expected. Perfect weather to turn the thermostat Off to save energy.';
-            } else if (day.hdd > 0 && day.cdd === 0) {
+                reason = `Milder outdoor average of ${day.temp_avg}°F falls within your home's natural insulation dead-band. Recommend keeping the thermostat Off or running fans to save energy.`;
+            } else if (hddVal >= 5.0 && cddVal === 0) {
                 recommendedMode = 'Heat';
                 recommendedSetpoint = heatTarget;
-                reason = `Heating is likely needed (low of ${day.tmin}°F). Recommend Heat mode at ${heatTarget}°F.`;
-            } else if (day.cdd > 0 && day.hdd === 0) {
+                reason = `Sustained outdoor chill expected (daily average of ${day.temp_avg}°F, HDD ${hddVal.toFixed(1)}). Recommend Heat mode set to ${heatTarget}°F.`;
+            } else if (cddVal >= 3.0 && hddVal === 0) {
                 recommendedMode = 'Cool';
                 recommendedSetpoint = coolTarget;
-                reason = `Cooling is likely needed (high of ${day.tmax}°F). Recommend Cool mode at ${coolTarget}°F.`;
+                reason = `Warm outdoor average of ${day.temp_avg}°F expected (CDD ${cddVal.toFixed(1)}). Recommend Cool mode set to ${coolTarget}°F.`;
             } else {
                 recommendedMode = 'Auto';
                 recommendedSetpoint = { heat: heatTarget, cool: coolTarget };
-                reason = `Wide daily temperature range (${day.tmin}°F to ${day.tmax}°F). Recommend Auto/Eco mode.`;
+                reason = `Wide daily temperature range (${day.tmin}°F to ${day.tmax}°F). Recommend Auto/Eco mode to balance daytime warmth and nighttime cool.`;
             }
 
             return {
