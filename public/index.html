@@ -567,14 +567,60 @@
                     renderOverviewChart();
                 });
 
+                // Calculate annual totals to find the best (least energy) and worst (most energy) completed years
+                const yearlyTotals = {};
+                data.forEach(d => {
+                    const year = new Date(d.period + '-02').getFullYear();
+                    const mins = parseInt(d.heat_mins || 0) + parseInt(d.ac_mins || 0);
+                    yearlyTotals[year] = (yearlyTotals[year] || 0) + mins;
+                });
+
+                const currentYear = years[0];
+                const completedYears = years.filter(y => y !== currentYear);
+                
+                let maxYear = null;
+                let minYear = null;
+                let maxUsage = -Infinity;
+                let minUsage = Infinity;
+
+                completedYears.forEach(y => {
+                    const usage = yearlyTotals[y] || 0;
+                    // Exclude years with extremely low data that might be incomplete backfills (e.g. under 20 hours total runtime)
+                    if (usage > 1200) { 
+                        if (usage > maxUsage) {
+                            maxUsage = usage;
+                            maxYear = y;
+                        }
+                        if (usage < minUsage) {
+                            minUsage = usage;
+                            minYear = y;
+                        }
+                    }
+                });
+
+                const defaultSelected = new Set([currentYear]);
+                if (maxYear !== null) defaultSelected.add(maxYear);
+                if (minYear !== null) defaultSelected.add(minYear);
+
                 // Trends Year Toggles (Custom Multi-select Dropdown)
                 const multiselectDropdown = document.getElementById('year-multiselect-dropdown');
-                multiselectDropdown.innerHTML = years.map((y, idx) => `
-                    <label class="multiselect-option">
-                        <input type="checkbox" class="checkbox-btn" value="${y}" ${idx < 3 ? 'checked' : ''}>
-                        <span>${y}</span>
-                    </label>
-                `).join('');
+                multiselectDropdown.innerHTML = years.map(y => {
+                    const isChecked = defaultSelected.has(y) ? 'checked' : '';
+                    let labelSuffix = '';
+                    if (y === currentYear) {
+                        labelSuffix = ' <span style="font-size: 0.75rem; color: var(--accent); font-weight: 600; opacity: 0.85;">(Current)</span>';
+                    } else if (y === maxYear) {
+                        labelSuffix = ' <span style="font-size: 0.75rem; color: #ef4444; font-weight: 600; opacity: 0.85;">(Max ⚠️)</span>';
+                    } else if (y === minYear) {
+                        labelSuffix = ' <span style="font-size: 0.75rem; color: #10b981; font-weight: 600; opacity: 0.85;">(Min 🌱)</span>';
+                    }
+                    return `
+                        <label class="multiselect-option">
+                            <input type="checkbox" class="checkbox-btn" value="${y}" ${isChecked}>
+                            <span>${y}${labelSuffix}</span>
+                        </label>
+                    `;
+                }).join('');
 
                 // Update the trigger button text based on selection
                 function updateMultiselectText() {
