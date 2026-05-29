@@ -207,27 +207,38 @@
             <div class="chart-card">
                 <div class="chart-header">
                     <span class="chart-title">Multi-Year Seasonal Shifts</span>
-                    <div class="checkbox-group" id="trends-year-toggles">
-                        <span>Select Years:</span>
-                        <!-- Populated dynamically -->
+                    <div class="custom-multiselect" id="trends-year-multiselect">
+                        <button class="multiselect-trigger" id="year-multiselect-btn">
+                            <span id="year-multiselect-text">Select Years</span>
+                            <span class="trigger-icon" style="font-size: 0.6rem;">▼</span>
+                        </button>
+                        <div class="multiselect-dropdown" id="year-multiselect-dropdown">
+                            <!-- Populated dynamically -->
+                        </div>
                     </div>
                 </div>
                 <div class="trends-grid">
                     <div style="margin-bottom: 30px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                             <h4 style="font-family: 'Outfit'; color: var(--text-dim); margin: 0;">HVAC Heating & Cooling Hours (by Month)</h4>
-                            <select id="trends-hvac-filter" class="chart-select" style="padding: 6px 12px; font-size: 0.8rem;">
-                                <option value="all">Heating & Cooling</option>
-                                <option value="heating">Heating Only</option>
-                                <option value="cooling">Cooling Only</option>
-                            </select>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <button class="btn-legend-toggle" id="toggle-trends-usage-legend">Show Key 🔑</button>
+                                <select id="trends-hvac-filter" class="chart-select" style="padding: 6px 12px; font-size: 0.8rem;">
+                                    <option value="all">Heating & Cooling</option>
+                                    <option value="heating">Heating Only</option>
+                                    <option value="cooling">Cooling Only</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="canvas-container">
                             <canvas id="trendsUsageChart"></canvas>
                         </div>
                     </div>
                     <div>
-                        <h4 style="margin-bottom: 12px; font-family: 'Outfit'; color: var(--text-dim);">Outdoor Temperatures vs. Historical Average</h4>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                            <h4 style="margin: 0; font-family: 'Outfit'; color: var(--text-dim);">Outdoor Temperatures vs. Historical Average</h4>
+                            <button class="btn-legend-toggle" id="toggle-trends-temp-legend">Show Key 🔑</button>
+                        </div>
                         <div class="canvas-container">
                             <canvas id="trendsTempChart"></canvas>
                         </div>
@@ -240,6 +251,7 @@
                 <div class="chart-header">
                     <span class="chart-title">Energy Signature Scatter Plot</span>
                     <div class="chart-controls">
+                        <button class="btn-legend-toggle" id="toggle-efficiency-legend">Show Key 🔑</button>
                         <label for="scatter-type-select" style="font-size: 0.85rem; color: var(--text-dim);">Compare By:</label>
                         <select id="scatter-type-select" class="chart-select">
                             <option value="all">Heating & Cooling Together</option>
@@ -289,6 +301,7 @@
                 <div class="chart-header">
                     <span class="chart-title">Dual-Axis Seasonal Timeline</span>
                     <div class="chart-controls">
+                        <button class="btn-legend-toggle" id="toggle-overview-legend">Show Key 🔑</button>
                         <label for="overview-year-select" style="font-size: 0.85rem; color: var(--text-dim);">Year:</label>
                         <select id="overview-year-select" class="chart-select">
                             <!-- Populated dynamically -->
@@ -323,6 +336,7 @@
                 <div class="chart-card">
                     <div class="chart-header">
                         <span class="chart-title">7-Day Temperature Projection</span>
+                        <button class="btn-legend-toggle" id="toggle-forecast-temp-legend">Show Key 🔑</button>
                     </div>
                     <div class="canvas-container" style="height: 300px;">
                         <canvas id="forecastTempChart"></canvas>
@@ -332,6 +346,7 @@
                 <div class="chart-card" style="margin-top: 24px;">
                     <div class="chart-header">
                         <span class="chart-title">Projected HVAC Energy Usage</span>
+                        <button class="btn-legend-toggle" id="toggle-forecast-energy-legend">Show Key 🔑</button>
                     </div>
                     <div class="canvas-container" style="height: 300px;">
                         <canvas id="forecastEnergyChart"></canvas>
@@ -398,6 +413,49 @@
         let trendsUsageChartInstance = null;
         let trendsTempChartInstance = null;
         let efficiencyScatterChartInstance = null;
+
+        // Global Legend Preferences (Hidden by default on mobile devices to preserve screen real estate)
+        window.legendPreferences = {
+            overview: window.innerWidth > 768,
+            trendsUsage: window.innerWidth > 768,
+            trendsTemp: window.innerWidth > 768,
+            efficiency: window.innerWidth > 768,
+            forecastTemp: window.innerWidth > 768,
+            forecastEnergy: window.innerWidth > 768
+        };
+
+        // Helper to bind interactive legend toggling for mobile viewports
+        function setupLegendToggle(buttonId, prefKey, getChartInstance) {
+            const btn = document.getElementById(buttonId);
+            if (!btn) return;
+            
+            // Set initial visual toggle state based on preference
+            if (window.legendPreferences[prefKey]) {
+                btn.innerHTML = 'Hide Key ✖️';
+                btn.classList.add('active');
+            } else {
+                btn.innerHTML = 'Show Key 🔑';
+                btn.classList.remove('active');
+            }
+            
+            btn.addEventListener('click', () => {
+                window.legendPreferences[prefKey] = !window.legendPreferences[prefKey];
+                const chart = getChartInstance();
+                
+                if (chart) {
+                    chart.options.plugins.legend.display = window.legendPreferences[prefKey];
+                    chart.update();
+                }
+                
+                if (window.legendPreferences[prefKey]) {
+                    btn.innerHTML = 'Hide Key ✖️';
+                    btn.classList.add('active');
+                } else {
+                    btn.innerHTML = 'Show Key 🔑';
+                    btn.classList.remove('active');
+                }
+            });
+        }
 
         // Static Historical Average Temperatures for Zip Code 01035 (Jan-Dec)
         const ZIP_HISTORICAL_TEMPS = [29.95, 31.80, 38.30, 48.60, 58.40, 67.95, 74.05, 72.75, 65.65, 54.80, 44.75, 35.70];
@@ -509,16 +567,50 @@
                     renderOverviewChart();
                 });
 
-                // Trends Year Toggles
-                const togglesContainer = document.getElementById('trends-year-toggles');
-                togglesContainer.innerHTML = '<span>Select Years:</span>' + years.map((y, idx) => `
-                    <input type="checkbox" id="toggle-yr-${y}" class="checkbox-btn" value="${y}" ${idx < 3 ? 'checked' : ''}>
-                    <label for="toggle-yr-${y}" class="checkbox-label">${y}</label>
+                // Trends Year Toggles (Custom Multi-select Dropdown)
+                const multiselectDropdown = document.getElementById('year-multiselect-dropdown');
+                multiselectDropdown.innerHTML = years.map((y, idx) => `
+                    <label class="multiselect-option">
+                        <input type="checkbox" class="checkbox-btn" value="${y}" ${idx < 3 ? 'checked' : ''}>
+                        <span>${y}</span>
+                    </label>
                 `).join('');
-                
+
+                // Update the trigger button text based on selection
+                function updateMultiselectText() {
+                    const checked = Array.from(multiselectDropdown.querySelectorAll('.checkbox-btn:checked')).map(cb => cb.value);
+                    const btnText = document.getElementById('year-multiselect-text');
+                    if (checked.length === 0) {
+                        btnText.textContent = "Select Years";
+                    } else if (checked.length === 1) {
+                        btnText.textContent = `Year: ${checked[0]}`;
+                    } else if (checked.length === years.length) {
+                        btnText.textContent = "All Years";
+                    } else {
+                        btnText.textContent = `${checked.length} Years Selected`;
+                    }
+                }
+
+                updateMultiselectText();
+
+                // Toggle dropdown display
+                const triggerBtn = document.getElementById('year-multiselect-btn');
+                triggerBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    multiselectDropdown.classList.toggle('active');
+                });
+
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!multiselectDropdown.contains(e.target) && e.target !== triggerBtn) {
+                        multiselectDropdown.classList.remove('active');
+                    }
+                });
+
                 // Attach event listener to checkboxes
-                document.querySelectorAll('.checkbox-btn').forEach(cb => {
+                multiselectDropdown.querySelectorAll('.checkbox-btn').forEach(cb => {
                     cb.addEventListener('change', () => {
+                        updateMultiselectText();
                         renderTrendsCharts();
                     });
                 });
@@ -544,6 +636,12 @@
                 renderTrendsCharts();
                 renderEfficiencyChart();
                 renderOverviewChart();
+
+                // Setup interactive legend toggles for mobile viewports
+                setupLegendToggle('toggle-overview-legend', 'overview', () => overviewChartInstance);
+                setupLegendToggle('toggle-trends-usage-legend', 'trendsUsage', () => trendsUsageChartInstance);
+                setupLegendToggle('toggle-trends-temp-legend', 'trendsTemp', () => trendsTempChartInstance);
+                setupLegendToggle('toggle-efficiency-legend', 'efficiency', () => efficiencyScatterChartInstance);
 
             } catch (err) {
                 console.error(err);
@@ -1032,6 +1130,7 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
+                            display: window.legendPreferences.overview,
                             labels: { color: '#94a3b8', font: { family: 'Inter', weight: '500' } }
                         },
                         tooltip: {
@@ -1075,7 +1174,7 @@
         // 2. Trends Tab: Multi-Year Line Charts (Usage & Temperature)
         function renderTrendsCharts() {
             // Get selected years from checkboxes
-            const selectedYears = Array.from(document.querySelectorAll('.checkbox-btn:checked')).map(cb => parseInt(cb.value));
+            const selectedYears = Array.from(document.querySelectorAll('#year-multiselect-dropdown .checkbox-btn:checked')).map(cb => parseInt(cb.value));
             
             if (selectedYears.length === 0) return;
 
@@ -1235,6 +1334,7 @@
             if (trendsUsageChartInstance) {
                 // Persistent transition update
                 trendsUsageChartInstance.data.datasets = usageDatasets;
+                trendsUsageChartInstance.options.plugins.legend.display = window.legendPreferences.trendsUsage;
                 trendsUsageChartInstance.update();
             } else {
                 const ctxUsage = document.getElementById('trendsUsageChart').getContext('2d');
@@ -1248,7 +1348,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
+                            legend: { display: window.legendPreferences.trendsUsage, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
                             tooltip: {
                                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
                                 titleFont: { family: 'Outfit' },
@@ -1266,10 +1366,10 @@
                                 const dataset = trendsUsageChartInstance.data.datasets[datasetIndex];
                                 const clickedYear = dataset.year;
                                 if (clickedYear) {
-                                    const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
-                                    if (window.dashboardData.some(d => d.period === clickedPeriod)) {
-                                        openModal(clickedPeriod, event.native);
-                                    }
+                                     const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
+                                     if (window.dashboardData.some(d => d.period === clickedPeriod)) {
+                                         openModal(clickedPeriod, event.native);
+                                     }
                                 }
                             }
                         }
@@ -1281,12 +1381,14 @@
             if (trendsTempChartInstance) {
                 // First draw transparent baseline on top of historical average
                 trendsTempChartInstance.data.datasets = initialTempDatasets;
+                trendsTempChartInstance.options.plugins.legend.display = window.legendPreferences.trendsTemp;
                 trendsTempChartInstance.update('none');
 
                 // Immediately trigger transition to year's specific charted temperatures
                 requestAnimationFrame(() => {
                     if (trendsTempChartInstance) {
                         trendsTempChartInstance.data.datasets = targetTempDatasets;
+                        trendsTempChartInstance.options.plugins.legend.display = window.legendPreferences.trendsTemp;
                         trendsTempChartInstance.update();
                     }
                 });
@@ -1302,7 +1404,7 @@
                         responsive: true,
                         maintainAspectRatio: false,
                         plugins: {
-                            legend: { display: true, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
+                            legend: { display: window.legendPreferences.trendsTemp, labels: { color: '#94a3b8', font: { family: 'Inter', size: 10 } } },
                             tooltip: {
                                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
                                 titleFont: { family: 'Outfit' },
@@ -1320,10 +1422,10 @@
                                 const dataset = trendsTempChartInstance.data.datasets[datasetIndex];
                                 const clickedYear = dataset.year;
                                 if (clickedYear) {
-                                    const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
-                                    if (window.dashboardData.some(d => d.period === clickedPeriod)) {
-                                        openModal(clickedPeriod, event.native);
-                                    }
+                                     const clickedPeriod = `${clickedYear}-${String(dataIndex + 1).padStart(2, '0')}`;
+                                     if (window.dashboardData.some(d => d.period === clickedPeriod)) {
+                                         openModal(clickedPeriod, event.native);
+                                     }
                                 }
                             }
                         }
@@ -1333,6 +1435,7 @@
                 requestAnimationFrame(() => {
                     if (trendsTempChartInstance) {
                         trendsTempChartInstance.data.datasets = targetTempDatasets;
+                        trendsTempChartInstance.options.plugins.legend.display = window.legendPreferences.trendsTemp;
                         trendsTempChartInstance.update();
                     }
                 });
@@ -1493,6 +1596,7 @@
             if (efficiencyScatterChartInstance) {
                 efficiencyScatterChartInstance.data.datasets = datasets;
                 efficiencyScatterChartInstance.options.scales.x.max = paddedMaxX;
+                efficiencyScatterChartInstance.options.plugins.legend.display = window.legendPreferences.efficiency;
                 efficiencyScatterChartInstance.update();
             } else {
                 const ctx = document.getElementById('efficiencyScatterChart').getContext('2d');
@@ -1511,7 +1615,7 @@
                             }
                         },
                         plugins: {
-                            legend: { labels: { color: '#94a3b8', font: { family: 'Inter', weight: '500' } } },
+                            legend: { display: window.legendPreferences.efficiency, labels: { color: '#94a3b8', font: { family: 'Inter', weight: '500' } } },
                             tooltip: {
                                 backgroundColor: 'rgba(15, 23, 42, 0.95)',
                                 titleFont: { family: 'Outfit' },
@@ -2100,7 +2204,12 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    plugins: { 
+                        legend: { 
+                            display: window.legendPreferences.forecastTemp,
+                            labels: { color: '#94a3b8' } 
+                        } 
+                    },
                     scales: {
                         x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
                         y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'Temperature (°F)', color: '#94a3b8' } }
@@ -2123,13 +2232,22 @@
                 },
                 options: {
                     responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: '#94a3b8' } } },
+                    plugins: { 
+                        legend: { 
+                            display: window.legendPreferences.forecastEnergy,
+                            labels: { color: '#94a3b8' } 
+                        } 
+                    },
                     scales: {
                         x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
                         y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'HVAC Runtime (Mins)', color: '#94a3b8' } }
                     }
                 }
             });
+
+            // Setup interactive legend toggles for forecast charts
+            setupLegendToggle('toggle-forecast-temp-legend', 'forecastTemp', () => forecastTempChartInstance);
+            setupLegendToggle('toggle-forecast-energy-legend', 'forecastEnergy', () => forecastEnergyChartInstance);
         }
 
         // Launch Dashboard

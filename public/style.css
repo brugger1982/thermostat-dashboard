@@ -812,3 +812,241 @@ footer {
     from { transform: translateX(0); opacity: 1; }
     to { transform: translateX(100%); opacity: 0; }
 }
+
+/* --- CUSTOM MULTISELECT DROPDOWN FOR YEARS --- */
+.custom-multiselect {
+    position: relative;
+    display: inline-block;
+}
+
+.multiselect-trigger {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--glass-border);
+    padding: 8px 16px;
+    border-radius: 100px;
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.multiselect-trigger:hover {
+    background: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+.multiselect-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    background: rgba(20, 21, 30, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 12px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: none; /* Controlled via JS */
+    min-width: 150px;
+    backdrop-filter: blur(10px);
+}
+
+.multiselect-dropdown.active {
+    display: block;
+    animation: dropdownFadeIn 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes dropdownFadeIn {
+    from { opacity: 0; transform: translateY(-8px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.multiselect-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    transition: all 0.15s ease;
+    user-select: none;
+    border: 1px solid transparent; /* Prevent layout shift */
+}
+
+.multiselect-option:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #fff;
+}
+
+/* Custom visual checkbox indicator for each year */
+.multiselect-option::before {
+    content: '';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid var(--text-dim);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+    color: transparent;
+    font-size: 10px;
+    font-weight: 900;
+}
+
+/* Custom checkbox active/checked state */
+.multiselect-option:has(input:checked)::before {
+    content: '✓';
+    color: #fff;
+    background: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 0 0 8px rgba(79, 70, 229, 0.4);
+}
+
+/* Highly visible highlighted background and bolding for selected years */
+.multiselect-option:has(input:checked) {
+    background: rgba(79, 70, 229, 0.2) !important;
+    border-color: rgba(79, 70, 229, 0.4) !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+}
+
+.multiselect-option input {
+    cursor: pointer;
+    accent-color: var(--accent);
+}
+
+/* Global constraint to prevent Chart.js canvases from stretching out of responsive bounds */
+.canvas-container canvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+}
+
+/* Hide tab icons on desktop */
+.tab-btn::before {
+    display: none;
+}
+
+/* Legend Toggle Button is hidden on desktop by default */
+.btn-legend-toggle {
+    display: none;
+}
+
+/* --- MOBILE RESPONSIVE MEDIA QUERIES (WIDTH < 768px) --- */
+@media (max-width: 768px) {
+    /* Sleek glassmorphic legend toggle buttons for mobile viewports */
+    .btn-legend-toggle {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid var(--glass-border);
+        color: var(--text-dim);
+        padding: 6px 12px;
+        border-radius: 100px;
+        font-size: 0.72rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-right: 5px;
+    }
+    .btn-legend-toggle:hover, .btn-legend-toggle.active {
+        background: rgba(79, 70, 229, 0.2) !important;
+        border-color: var(--accent) !important;
+        color: #fff !important;
+        box-shadow: 0 0 10px rgba(79, 70, 229, 0.3);
+    }
+    /* 1. Sleek Floating Bottom Navigation Bar */
+    .tabs-container {
+        position: fixed;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        background: rgba(20, 21, 30, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 100px;
+        padding: 8px 12px;
+        margin-bottom: 0;
+        z-index: 999;
+        display: flex;
+        justify-content: space-around;
+        align-items: center;
+        backdrop-filter: blur(20px);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .tab-btn {
+        flex: 1;
+        padding: 8px 4px !important;
+        font-size: 0.7rem !important;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        background: transparent !important;
+        border: none !important;
+        color: var(--text-dim) !important;
+        border-radius: 12px !important;
+        box-shadow: none !important;
+    }
+    
+    .tab-btn.active {
+        color: var(--accent) !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+    
+    /* Emojis dynamically injected using CSS based on data-tab attribute */
+    .tab-btn::before {
+        display: block !important;
+        font-size: 1.2rem;
+    }
+    .tab-btn[data-tab="overview"]::before { content: "📊"; }
+    .tab-btn[data-tab="details"]::before { content: "📈"; }
+    .tab-btn[data-tab="forecast"]::before { content: "🌤️"; }
+    .tab-btn[data-tab="sync"]::before { content: "🏥"; }
+    
+    /* Add padding to the page body to prevent content cutoff by the floating tab bar */
+    body {
+        padding-bottom: calc(90px + env(safe-area-inset-bottom, 0px)) !important;
+    }
+
+    /* 2. Spacious Mobile Charts (Covering 66% of vertical space & viewport fit) */
+    .trends-grid > div {
+        min-width: 0 !important; /* Force grid children to shrink on mobile */
+    }
+    
+    .canvas-container {
+        height: 55vh !important;
+        min-height: 400px !important;
+        max-width: 100% !important;
+        overflow: hidden !important; /* Prevent canvas stretching off-screen */
+    }
+    
+    /* Ensure cards have tighter padding on mobile devices */
+    .chart-card {
+        padding: 16px !important;
+        margin-bottom: 20px !important;
+    }
+    
+    /* Responsive header text updates to prevent horizontal text overflow */
+    .chart-title {
+        font-size: 1.15rem !important;
+    }
+    .chart-header h4, .trends-grid h4 {
+        font-size: 0.9rem !important;
+        line-height: 1.4 !important;
+    }
+}
