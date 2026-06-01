@@ -2144,8 +2144,24 @@
                 
                 let strategyText = d.recommended_mode === 'Off' ? 'Turn System Off' : `${d.recommended_mode} to ${d.recommended_setpoint}°F`;
 
+                // Pre-conditioning indicator
+                const hasPreCond = !!d.pre_conditioning;
+                const preCondClass = hasPreCond ? ' pre-conditioning-active' : '';
+                const isPreCool = d.pre_conditioning && d.pre_conditioning.includes('pre-cooling');
+                const preCondIcon = isPreCool ? '🧊' : '🔥';
+                const preCondLabel = isPreCool ? 'Pre-Cool Advisory' : 'Pre-Heat Advisory';
+                const preCondStrip = hasPreCond ? `
+                    <div class="pre-conditioning-strip">
+                        <div class="strip-icon">${preCondIcon}</div>
+                        <div class="strip-text">
+                            <div class="strip-label">${preCondLabel}</div>
+                            ${d.pre_conditioning}
+                        </div>
+                    </div>
+                ` : '';
+
                 return `
-                    <div class="forecast-card">
+                    <div class="forecast-card${preCondClass}">
                         <!-- Section A: Weather Prediction -->
                         <div class="forecast-section">
                             <div class="forecast-date">${dayName}</div>
@@ -2189,6 +2205,8 @@
                                 </div>
                             </div>
                         </div>
+
+                        ${preCondStrip}
                     </div>
                 `;
             }).join('');

@@ -115,8 +115,10 @@ app.get('/api/forecast/7day', async (req, res) => {
             LIMIT 7
         `);
 
-        if (forecastRes.rows.length === 0) {
-            console.log("DEBUG: No forecast in database. Performing automatic on-the-fly sync...");
+        if (forecastRes.rows.length < 7) {
+            console.log(`DEBUG: Only ${forecastRes.rows.length} forecast days available (need 7). Performing automatic on-the-fly sync...`);
+            // Purge stale past-date rows before re-syncing
+            await weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`);
             await weather.syncForecast();
             forecastRes = await weather.pool.query(`
                 SELECT 
@@ -386,6 +388,18 @@ app.listen(PORT, async () => {
     } else {
         console.log("⚠️ Nest Poller skipped: No refresh token configured.");
     }
+
+    // Auto-sync forecast on startup and every 6 hours
+    console.log("🌤️ Syncing weather forecast...");
+    weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`)
+        .then(() => weather.syncForecast())
+        .catch(err => console.error("⚠️ Initial forecast sync failed:", err.message));
+    setInterval(() => {
+        console.log("🌤️ Scheduled forecast refresh...");
+        weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`)
+            .then(() => weather.syncForecast())
+            .catch(err => console.error("⚠️ Scheduled forecast sync failed:", err.message));
+    }, 6 * 60 * 60 * 1000); // Every 6 hours
 
     console.log(`\n🏠 Webapp is live at http://localhost:${PORT}`);
 });

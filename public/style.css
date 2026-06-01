@@ -754,6 +754,44 @@ footer {
 .forecast-alert-content h4 { color: #f87171; margin-bottom: 5px; font-family: 'Outfit', sans-serif; font-size: 1.2rem; }
 .forecast-alert-content p { color: var(--text-dim); font-size: 0.95rem; line-height: 1.5; }
 
+/* Per-card Pre-Conditioning Indicator */
+.forecast-card.pre-conditioning-active {
+    border-color: rgba(245, 158, 11, 0.5);
+    box-shadow: 0 0 20px rgba(245, 158, 11, 0.12), inset 0 0 30px rgba(245, 158, 11, 0.03);
+}
+
+.pre-conditioning-strip {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.12), rgba(239, 68, 68, 0.08));
+    border-top: 1px solid rgba(245, 158, 11, 0.25);
+    padding: 14px 18px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.pre-conditioning-strip .strip-icon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+
+.pre-conditioning-strip .strip-text {
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #fbbf24;
+    font-weight: 500;
+}
+
+.pre-conditioning-strip .strip-label {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #f59e0b;
+    margin-bottom: 3px;
+}
+
 /* Tab Viewport & Sliding Transition Layouts */
 .tab-viewport {
     position: relative;
