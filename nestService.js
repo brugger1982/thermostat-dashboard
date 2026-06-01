@@ -50,6 +50,21 @@ class NestService {
 
         if (!this.refreshToken) return;
         try {
+            // Acquire lease for 50 seconds to prevent concurrent polling across multiple servers (e.g. dev, docker, Cloud Run)
+            const lockRes = await pool.query(`
+                INSERT INTO system_settings (key, value)
+                VALUES ('LAST_NEST_POLL', NOW()::text)
+                ON CONFLICT (key) DO UPDATE
+                SET value = NOW()::text
+                WHERE (system_settings.value::timestamp < NOW() - INTERVAL '50 seconds')
+                RETURNING value
+            `);
+
+            if (lockRes.rows.length === 0) {
+                // Skip silently - another active server instance already polled Nest < 50s ago
+                return;
+            }
+
             const token = await this.getAccessToken();
             const url = `https://smartdevicemanagement.googleapis.com/v1/enterprises/${this.projectId}/devices`;
             const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
