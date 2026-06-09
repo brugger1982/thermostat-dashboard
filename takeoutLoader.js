@@ -76,6 +76,15 @@ async function processJsonlFile(filePath) {
 
 async function loadTakeoutData(rootPath) {
     console.log(`🔍 COMPREHENSIVE LOAD: Scanning for Nest Takeout in: ${rootPath}`);
+    
+    // Ensure schema is migrated and backfilled before processing takeout files
+    await pool.query("ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS sample_count INTEGER DEFAULT 1");
+    await pool.query("ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT NOW()");
+    await pool.query("ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS data_source VARCHAR DEFAULT 'polling'");
+    await pool.query("UPDATE thermostat_runtime SET data_source = 'excel' WHERE sample_count = 0 AND data_source = 'polling'");
+    await pool.query("UPDATE thermostat_runtime SET data_source = 'takeout' WHERE sample_count IN (720, 1440) AND date < '2026-05-20' AND data_source = 'polling'");
+    console.log("✅ Database schema and data source labels verified/backfilled.");
+
     const files = findTakeoutFiles(rootPath);
     console.log(`Found ${files.length} data files (Summaries & JSONL).`);
 
@@ -98,14 +107,16 @@ async function loadTakeoutData(rootPath) {
                 }
 
                 await pool.query(`
-                    INSERT INTO thermostat_runtime (date, heat_mins, ac_mins, avg_setpoint, sample_count, last_updated)
-                    VALUES ($1, $2, $3, $4, 1440, NOW())
+                    INSERT INTO thermostat_runtime (date, heat_mins, ac_mins, avg_setpoint, sample_count, data_source, last_updated)
+                    VALUES ($1, $2, $3, $4, 1440, 'takeout', NOW())
                     ON CONFLICT (date) DO UPDATE SET
                         heat_mins = EXCLUDED.heat_mins,
                         ac_mins = EXCLUDED.ac_mins,
                         avg_setpoint = EXCLUDED.avg_setpoint,
                         sample_count = 1440,
-                        last_updated = NOW();
+                        data_source = 'takeout',
+                        last_updated = NOW()
+                    WHERE thermostat_runtime.data_source != 'excel' OR EXCLUDED.heat_mins > 0 OR EXCLUDED.ac_mins > 0;
                 `, [date, heatMins, acMins, avgSetpoint]);
                 totalDays++;
             }
@@ -147,14 +158,16 @@ async function loadTakeoutData(rootPath) {
                     }
 
                     await pool.query(`
-                        INSERT INTO thermostat_runtime (date, heat_mins, ac_mins, avg_setpoint, sample_count, last_updated)
-                        VALUES ($1, $2, $3, $4, 720, NOW())
+                        INSERT INTO thermostat_runtime (date, heat_mins, ac_mins, avg_setpoint, sample_count, data_source, last_updated)
+                        VALUES ($1, $2, $3, $4, 720, 'takeout', NOW())
                         ON CONFLICT (date) DO UPDATE SET
                             heat_mins = EXCLUDED.heat_mins,
                             ac_mins = EXCLUDED.ac_mins,
                             avg_setpoint = EXCLUDED.avg_setpoint,
                             sample_count = 720,
-                            last_updated = NOW();
+                            data_source = 'takeout',
+                            last_updated = NOW()
+                        WHERE thermostat_runtime.data_source != 'excel' OR EXCLUDED.heat_mins > 0 OR EXCLUDED.ac_mins > 0;
                     `, [date, heatMins, acMins, avgSetpoint]);
                     totalDays++;
                 }

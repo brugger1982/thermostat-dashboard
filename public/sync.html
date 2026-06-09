@@ -34,6 +34,22 @@
         .day-block.partial { background: #f59e0b; }
         .day-block.gaps { background: #f97316; }
         .day-block.empty { background: #ef4444; }
+        .day-block.stale {
+            position: relative;
+        }
+        .day-block.stale::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 2px;
+            background: repeating-linear-gradient(
+                -45deg,
+                rgba(0,0,0,0.45) 0px,
+                rgba(0,0,0,0.45) 2px,
+                transparent 2px,
+                transparent 5px
+            );
+        }
 
         .tooltip { position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #000; padding: 8px; border-radius: 4px; font-size: 0.7rem; white-space: nowrap; visibility: hidden; z-index: 10; margin-bottom: 5px; }
         .day-block:hover .tooltip { visibility: visible; }
@@ -76,6 +92,8 @@
                     <span id="nest-status">Checking...</span>
                 </div>
                 <small class="text-dim" id="nest-time">Last update: --</small>
+                <small class="text-dim" id="nest-samples" style="margin-top: 2px;">Today: --</small>
+                <a href="/auth/login" class="nav-back" id="reauth-link" style="margin-top: 10px; margin-bottom: 0; font-size: 0.8rem; display: none;">🔄 Re-authorize Nest API</a>
             </div>
             <div class="health-card">
                 <span class="health-label">Weather Data Pulse</span>
@@ -89,7 +107,7 @@
 
         <div class="density-section">
             <span class="health-label">Recent Data Confidence (Last 90 Days)</span>
-            <div style="margin-top: 5px; font-size: 0.8rem; color: var(--text-dim);">Each block represents a day. Dark green = 100% complete. Orange/Red = Gaps detected (need Takeout).</div>
+            <div style="margin-top: 5px; font-size: 0.8rem; color: var(--text-dim);">Each block represents a day. Dark green = 100% complete. Orange/Red = Gaps detected (need Takeout). <strong style="color:var(--text-muted)">Diagonal stripes = stale</strong> — samples exist but poller hasn't written in &gt;26h.</div>
             <div class="density-grid" id="density-grid"></div>
         </div>
 
@@ -119,25 +137,56 @@
                 
                 const nDot = document.getElementById('nest-dot');
                 const nStatus = document.getElementById('nest-status');
-                if (nestDiff < 600) { nStatus.innerText = "Active"; nDot.className = "pulse-dot"; }
-                else if (nestDiff < 3600) { nStatus.innerText = "Delayed"; nDot.className = "pulse-dot warning"; }
-                else { nStatus.innerText = "Inactive"; nDot.className = "pulse-dot error"; }
+                const reauthLink = document.getElementById('reauth-link');
+                if (nestDiff < 600) { 
+                    nStatus.innerText = "Active"; 
+                    nDot.className = "pulse-dot"; 
+                    reauthLink.style.display = "none";
+                }
+                else if (nestDiff < 3600) { 
+                    nStatus.innerText = "Delayed"; 
+                    nDot.className = "pulse-dot warning"; 
+                    reauthLink.style.display = "inline-flex";
+                }
+                else { 
+                    nStatus.innerText = "Inactive"; 
+                    nDot.className = "pulse-dot error"; 
+                    reauthLink.style.display = "inline-flex";
+                }
                 document.getElementById('nest-time').innerText = "Last Heartbeat: " + getTimeAgo(nestLast);
+
+                // Today's sample count — shows polling activity level, not just last write time
+                const todaySamples = parseInt(data.health.today_samples) || 0;
+                const expectedByNow = Math.floor(((new Date().getHours() * 60 + new Date().getMinutes())) / 1); // minutes elapsed today
+                const expectedSamples = Math.floor(expectedByNow / 1); // 1 sample/min = 60/hr, poller runs every 60s
+                const sampleEl = document.getElementById('nest-samples');
+                // Expected: ~1 sample per minute the poller ran = hours_elapsed * 60
+                const hoursElapsed = new Date().getHours() + new Date().getMinutes() / 60;
+                const roughExpected = Math.round(hoursElapsed * 60);
+                const pct = roughExpected > 0 ? Math.round((todaySamples / roughExpected) * 100) : 0;
+                let sampleColor = '#10b981';
+                if (pct < 50) sampleColor = '#ef4444';
+                else if (pct < 85) sampleColor = '#f59e0b';
+                sampleEl.innerHTML = `Today: <span style="color:${sampleColor};font-weight:600">${todaySamples} samples</span> <span style="opacity:0.5">(~${roughExpected} expected)</span>`;
+
                 document.getElementById('weather-time').innerText = "Latest Data: " + (weatherLast ? new Date(weatherLast).toLocaleDateString() : "--");
 
-                const grid = document.getElementById('density-grid');
-                const expected = 720;
-                if (data.daily && Array.isArray(data.daily)) {
-                    grid.innerHTML = data.daily.map(day => {
-                        const date = new Date(day.date).toLocaleDateString();
-                        const confidence = Math.min(100, Math.round((day.sample_count / expected) * 100));
-                        let colorClass = "full";
-                        if (confidence < 20) colorClass = "empty";
-                        else if (confidence < 70) colorClass = "gaps";
-                        else if (confidence < 98) colorClass = "partial";
-                        return `<div class="day-block ${colorClass}"><div class="tooltip">${date}<br>Confidence: ${confidence}%<br>Samples: ${day.sample_count}/${expected}</div></div>`;
-                    }).join('');
-                }
+                const STALE_MS = 26 * 60 * 60 * 1000; // 26 hours
+                const now = Date.now();
+                grid.innerHTML = data.daily.map(day => {
+                    const date = new Date(day.date).toLocaleDateString();
+                    const confidence = Math.min(100, Math.round((day.sample_count / expected) * 100));
+                    const lastUpdated = day.last_updated ? new Date(day.last_updated) : null;
+                    const isStale = !lastUpdated || (now - lastUpdated.getTime()) > STALE_MS;
+                    let colorClass = "full";
+                    if (confidence < 20) colorClass = "empty";
+                    else if (confidence < 70) colorClass = "gaps";
+                    else if (confidence < 98) colorClass = "partial";
+                    const staleClass = isStale ? " stale" : "";
+                    const staleNote = isStale ? `<br>⚠️ Stale: last write ${lastUpdated ? getTimeAgo(lastUpdated) : 'never'}` : '';
+                    const sourceLabel = day.data_source === 'takeout' ? '📦 Takeout (authoritative)' : '📡 Polling';
+                    return `<div class="day-block ${colorClass}${staleClass}"><div class="tooltip">${date}<br>Source: ${sourceLabel}<br>Confidence: ${confidence}%<br>Samples: ${day.sample_count}/${expected}${staleNote}</div></div>`;
+                }).join('');
 
                 const years = {};
                 data.coverage.forEach(row => {

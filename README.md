@@ -30,12 +30,35 @@ NEST_PROJECT_ID=your_nest_project_id
 CLIENT_ID=your_google_client_id
 CLIENT_SECRET=your_google_client_secret
 PORT=3000
+
+# Optional: Neon API keys for ephemeral dev branching workflow
+NEON_API_KEY=your_neon_api_key
+NEON_PROJECT_ID=your_neon_project_id
 ```
 
-### 3. Installation
+### 3. Installation & Running
+
+Initialize the project dependencies and setup views:
 ```bash
 npm install
-node setupViews.js  # Initializes the database analytics views
+node setupViews.js  # Initializes the database analytics views on the main database
+```
+
+#### Development Mode (with Ephemeral Neon Branches)
+Running the dev server will automatically create a copy-on-write dev database branch from your production data, connect to it with Nest polling enabled, and delete the branch when you exit:
+```bash
+npm run dev
+```
+*(Requires `NEON_API_KEY` and `NEON_PROJECT_ID` configured in `.env`)*
+
+If you want to run the dev server and connect directly to your production/configured `DATABASE_URL` without creating branches, run:
+```bash
+npm run dev:no-branch
+```
+
+#### Production Mode
+Starts the web application directly using the production `DATABASE_URL`:
+```bash
 npm start
 ```
 

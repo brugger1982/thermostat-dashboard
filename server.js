@@ -26,6 +26,18 @@ app.use(express.static('public'));
 
 // --- AUTH ROUTES ---
 
+app.get('/auth/login', (req, res) => {
+    const protocol = req.headers['x-forwarded-proto'] || req.protocol;
+    const redirectUri = `${protocol}://${req.get('host')}/auth/callback`;
+    const authUrl = `https://nestservices.google.com/partnerconnections/${process.env.NEST_PROJECT_ID}/auth` +
+        `?redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&client_id=${encodeURIComponent(process.env.CLIENT_ID)}` +
+        `&state=state` +
+        `&response_type=code` +
+        `&scope=https://www.googleapis.com/auth/sdm.service`;
+    res.redirect(authUrl);
+});
+
 app.get('/auth/callback', async (req, res) => {
     const code = req.query.code;
     if (!code) return res.send("No code found.");
@@ -291,13 +303,14 @@ app.get('/api/sync/status', async (req, res) => {
         const healthQuery = `
             SELECT 
                 (SELECT last_updated FROM thermostat_runtime ORDER BY last_updated DESC LIMIT 1) as nest_heartbeat,
-                (SELECT MAX(date) FROM weather_daily) as weather_heartbeat
+                (SELECT MAX(date) FROM weather_daily) as weather_heartbeat,
+                (SELECT COALESCE(sample_count, 0) FROM thermostat_runtime WHERE date = CURRENT_DATE) as today_samples
         `;
         const healthRes = await weather.pool.query(healthQuery);
         
         // 2. Daily Density (90 days)
         const densityQuery = `
-            SELECT date, sample_count, last_updated 
+            SELECT date, sample_count, last_updated, COALESCE(data_source, 'polling') as data_source
             FROM thermostat_runtime 
             WHERE date > CURRENT_DATE - INTERVAL '90 days'
             ORDER BY date DESC
@@ -339,9 +352,15 @@ app.get('/health', (req, res) => res.send('OK'));
 
 app.listen(PORT, async () => {
     console.log("🚀 Starting Thermostat Dashboard Webapp...");
+    const isDev = process.env.DEV_MODE === 'true';
+    const dbHost = process.env.DATABASE_URL ? (process.env.DATABASE_URL.split('@')[1]?.split('/')[0] || 'unknown') : 'unknown';
+    console.log(`📦 Database: ${isDev ? 'DEVELOPMENT (ephemeral branch)' : 'PRODUCTION'} (${dbHost})`);
     try {
         await weather.pool.query('ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS sample_count INTEGER DEFAULT 1');
         await weather.pool.query('ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS last_updated TIMESTAMP DEFAULT NOW()');
+        await weather.pool.query("ALTER TABLE thermostat_runtime ADD COLUMN IF NOT EXISTS data_source VARCHAR DEFAULT 'polling'");
+        await weather.pool.query("UPDATE thermostat_runtime SET data_source = 'excel' WHERE sample_count = 0 AND data_source = 'polling'");
+        await weather.pool.query("UPDATE thermostat_runtime SET data_source = 'takeout' WHERE sample_count IN (720, 1440) AND date < '2026-05-20' AND data_source = 'polling'");
         await weather.pool.query(`
             CREATE TABLE IF NOT EXISTS system_settings (
                 key VARCHAR PRIMARY KEY,
@@ -380,13 +399,18 @@ app.listen(PORT, async () => {
         console.log("⚠️ Database schema check: ", err.message);
     }
 
-    // Start Nest polling every 60 seconds
-    if (nest.refreshToken) {
+    // Start Nest polling every 60 seconds (only in production or if explicitly enabled)
+    const isProduction = !!process.env.K_SERVICE;
+    const shouldPoll = isProduction || process.env.POLL_NEST === 'true';
+
+    if (nest.refreshToken && shouldPoll) {
         console.log("🔄 Starting Nest Poller (every 60s)...");
         nest.logRuntimes(weather.pool).catch(console.error);
         setInterval(() => nest.logRuntimes(weather.pool).catch(console.error), 60000);
-    } else {
+    } else if (!nest.refreshToken) {
         console.log("⚠️ Nest Poller skipped: No refresh token configured.");
+    } else {
+        console.log("⚠️ Nest Poller skipped: Running in development mode (set POLL_NEST=true to enable).");
     }
 
     // Auto-sync forecast on startup and every 6 hours

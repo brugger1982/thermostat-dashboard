@@ -49,6 +49,12 @@ class NestService {
         }
 
         if (!this.refreshToken) return;
+
+        const isProduction = !!process.env.K_SERVICE;
+        const shouldPoll = isProduction || process.env.POLL_NEST === 'true';
+        if (!shouldPoll) {
+            return;
+        }
         try {
             // Acquire lease for 50 seconds to prevent concurrent polling across multiple servers (e.g. dev, docker, Cloud Run)
             const lockRes = await pool.query(`
@@ -86,14 +92,15 @@ class NestService {
             console.log(`DEBUG: Nest Poller - Status: ${status} | Target: ${avgSetpointF.toFixed(1)}°F`);
 
             await pool.query(`
-                INSERT INTO thermostat_runtime (date, heat_mins, ac_mins, avg_setpoint, sample_count, last_updated)
-                VALUES ($1, $2, $3, $4, 1, NOW())
+                INSERT INTO thermostat_runtime (date, heat_mins, ac_mins, avg_setpoint, sample_count, data_source, last_updated)
+                VALUES ($1, $2, $3, $4, 1, 'polling', NOW())
                 ON CONFLICT (date) DO UPDATE SET
                     heat_mins = thermostat_runtime.heat_mins + EXCLUDED.heat_mins,
                     ac_mins = thermostat_runtime.ac_mins + EXCLUDED.ac_mins,
                     avg_setpoint = (thermostat_runtime.avg_setpoint * thermostat_runtime.sample_count + EXCLUDED.avg_setpoint) / (thermostat_runtime.sample_count + 1),
                     sample_count = thermostat_runtime.sample_count + 1,
-                    last_updated = NOW();
+                    last_updated = NOW()
+                WHERE thermostat_runtime.data_source != 'takeout';
             `, [date, heatAdd, acAdd, avgSetpointF]);
 
         } catch (err) {
