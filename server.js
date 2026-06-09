@@ -32,6 +32,8 @@ app.get('/auth/login', (req, res) => {
     const authUrl = `https://nestservices.google.com/partnerconnections/${process.env.NEST_PROJECT_ID}/auth` +
         `?redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&client_id=${encodeURIComponent(process.env.CLIENT_ID)}` +
+        `&access_type=offline` +
+        `&prompt=consent` +
         `&state=state` +
         `&response_type=code` +
         `&scope=https://www.googleapis.com/auth/sdm.service`;
@@ -54,7 +56,19 @@ app.get('/auth/callback', async (req, res) => {
         process.env.NEST_REFRESH_TOKEN = refreshToken;
         nest.refreshToken = refreshToken;
         nest.logRuntimes(weather.pool).catch(console.error); // Trigger immediate sync
-        res.send("<h1>Success!</h1><p>Your Nest account is authorized. You can close this tab.</p>");
+        
+        let responseMsg = "<h1>Success!</h1><p>Your Nest account is authorized. You can close this tab.</p>";
+        if (process.env.DEV_MODE === 'true') {
+            responseMsg = `
+                <h1>Success!</h1>
+                <p>Your Nest account is authorized.</p>
+                <p><strong>Dev Refresh Token:</strong></p>
+                <textarea rows="4" cols="80" readonly style="font-family: monospace; padding: 8px;">${refreshToken}</textarea>
+                <p>To keep local dev working across database refreshes, copy this token and paste it into your <code>.env</code> file as:</p>
+                <pre style="background: #f0f0f0; padding: 10px; border-radius: 4px; font-family: monospace;">NEST_REFRESH_TOKEN=${refreshToken}</pre>
+            `;
+        }
+        res.send(responseMsg);
     } catch (err) {
         res.status(500).send("Auth Error: " + err.message);
     }
@@ -388,6 +402,23 @@ app.listen(PORT, async () => {
         await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS conditions VARCHAR');
         console.log("✅ Database schema verified.");
         
+        // In dev mode, the database is cloned from production, which means it starts with the production token.
+        // If we are in DEV_MODE, we override the DB token with whatever is in process.env.NEST_REFRESH_TOKEN (from .env).
+        if (process.env.DEV_MODE === 'true') {
+            const envToken = process.env.NEST_REFRESH_TOKEN || '';
+            if (envToken) {
+                await weather.pool.query(`
+                    INSERT INTO system_settings (key, value)
+                    VALUES ('NEST_REFRESH_TOKEN', $1)
+                    ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value
+                `, [envToken]);
+                console.log("🔑 Dev mode: Synced NEST_REFRESH_TOKEN from .env to database.");
+            } else {
+                await weather.pool.query(`DELETE FROM system_settings WHERE key = 'NEST_REFRESH_TOKEN'`);
+                console.log("🔑 Dev mode: Cleared production NEST_REFRESH_TOKEN from ephemeral database.");
+            }
+        }
+
         // Load Nest Token from DB
         const tokenRes = await weather.pool.query(`SELECT value FROM system_settings WHERE key = 'NEST_REFRESH_TOKEN'`);
         if (tokenRes.rows.length > 0) {
