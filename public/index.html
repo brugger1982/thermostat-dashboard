@@ -1228,7 +1228,39 @@
             const container = document.getElementById('usage-annual-view');
             const data = window.yearlyData;
             
-            // Similar logic to max calculations but for yearly
+            // Calculate annual efficiencies for benchmarks
+            const annualEfficiencies = [];
+            const dataMap = {};
+            data.forEach(m => {
+                const year = m.year;
+                const cdd = parseFloat(m.cdd || 0);
+                const hdd = parseFloat(m.hdd || 0);
+                const coolHrs = parseInt(m.ac_mins || 0) / 60;
+                const heatHrs = parseInt(m.heat_mins || 0) / 60;
+                
+                const totalDD = cdd + hdd;
+                const totalHrs = coolHrs + heatHrs;
+                
+                let efficiency = null;
+                // Only consider years with a meaningful amount of data (e.g. >100 Degree Days)
+                if (totalDD > 100) { 
+                    efficiency = totalHrs / (totalDD / 100);
+                    annualEfficiencies.push(efficiency);
+                }
+                
+                dataMap[year] = { ...m, totalDD, totalHrs, efficiency };
+            });
+
+            // Calculate historical mean and standard deviation for Option 1
+            let meanEff = 0;
+            let stdDevEff = 1;
+            if (annualEfficiencies.length > 0) {
+                meanEff = annualEfficiencies.reduce((a, b) => a + b, 0) / annualEfficiencies.length;
+                const variance = annualEfficiencies.reduce((a, b) => a + Math.pow(b - meanEff, 2), 0) / annualEfficiencies.length;
+                stdDevEff = Math.sqrt(variance) || 1;
+            }
+
+            // Max limits for the charts
             let maxCDD = 0, maxHDD = 0, maxCool = 0, maxHeat = 0;
             data.forEach(m => {
                 const cdd = parseFloat(m.cdd || 0);
@@ -1244,6 +1276,9 @@
 
             container.innerHTML = data.map(m => {
                 const year = m.year;
+                const yearData = dataMap[year];
+                const prevYearData = dataMap[year - 1];
+                
                 const cdd = parseFloat(m.cdd || 0);
                 const hdd = parseFloat(m.hdd || 0);
                 const cddPct = maxCDD ? (cdd / maxCDD) * 100 : 0;
@@ -1254,17 +1289,43 @@
                 const coolPct = maxCool ? (coolHrs / maxCool) * 100 : 0;
                 const heatPct = maxHeat ? (heatHrs / maxHeat) * 100 : 0;
                 
-                let effClass = 'eff-mid';
-                let effLabel = 'Annual Load';
+                // Option 1: Historical Normalized Efficiency Badge
+                let effClass1 = 'eff-mid';
+                let effLabel1 = 'Typical Load';
+                if (yearData.efficiency !== null) {
+                    const z = (yearData.efficiency - meanEff) / stdDevEff;
+                    if (z > 0.5) { effClass1 = 'eff-high'; effLabel1 = 'Heavy Load'; }
+                    else if (z < -0.5) { effClass1 = 'eff-low'; effLabel1 = 'Efficient'; }
+                }
+
+                // Option 2: Year-Over-Year Progress Badge
+                let effClass2 = 'eff-mid';
+                let effLabel2 = 'Baseline Year';
+                if (prevYearData && prevYearData.efficiency !== null && yearData.efficiency !== null) {
+                    const pctChange = ((yearData.efficiency - prevYearData.efficiency) / prevYearData.efficiency) * 100;
+                    if (pctChange > 5) {
+                        effClass2 = 'eff-high';
+                        effLabel2 = 'Declining 📉';
+                    } else if (pctChange < -5) {
+                        effClass2 = 'eff-low';
+                        effLabel2 = 'Improving 📈';
+                    } else {
+                        effClass2 = 'eff-mid';
+                        effLabel2 = 'Stable ➖';
+                    }
+                }
 
                 return `
                     <div class="premium-card" onclick="navigateUsage('monthly', ${year})">
                         <div class="card-header">
                             <div>
                                 <span class="year-label">Year Overview</span>
-                                <div style="display: flex; align-items: center; gap: 10px;">
+                                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                                     <span class="month-label" style="font-size: 1.5rem;">${year}</span>
-                                    <span class="efficiency-badge ${effClass}">${effLabel}</span>
+                                    <div style="display: flex; gap: 6px;">
+                                        <span class="efficiency-badge ${effClass1}" title="Normalized Weather Efficiency">${effLabel1}</span>
+                                        <span class="efficiency-badge ${effClass2}" title="Year-Over-Year Progress">${effLabel2}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
