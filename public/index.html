@@ -143,6 +143,60 @@
         .eff-low { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
 
         .empty-state { grid-column: 1 / -1; padding: 100px; text-align: center; color: var(--text-dim); font-size: 1.2rem; }
+
+        /* Sub-navigation styling */
+        .subnav-container {
+            display: none;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 0 25px 0;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            backdrop-filter: blur(5px);
+        }
+        .subnav-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            padding: 6px 14px;
+            border-radius: 100px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            font-family: 'Inter', sans-serif;
+        }
+        .subnav-btn:hover:not(:disabled) {
+            background: rgba(255, 255, 255, 0.10);
+            transform: translateY(-1px);
+            border-color: rgba(255, 255, 255, 0.25);
+        }
+        .subnav-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+        .subnav-btn:disabled {
+            opacity: 0.25;
+            cursor: not-allowed;
+            border-color: rgba(255, 255, 255, 0.03);
+            color: var(--text-dim);
+        }
+        .subnav-current-label {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text);
+            letter-spacing: 0.5px;
+        }
+        .subnav-arrow {
+            font-size: 1rem;
+            line-height: 1;
+        }
     </style>
 </head>
 <body>
@@ -313,9 +367,47 @@
                 </div>
             </div>
 
-            <!-- Monthly Cards Grid -->
-            <main id="dashboard" class="cards-container">
+            <!-- Recent 30 Days Timeline Chart Card -->
+            <div class="chart-card" style="margin-top: 30px;">
+                <div class="chart-header">
+                    <span class="chart-title">Running 30-Day Daily Timeline</span>
+                    <div class="chart-controls">
+                        <button class="btn-legend-toggle" id="toggle-recent30-legend">Show Key 🔑</button>
+                    </div>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="recent30DaysChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Back Button Navigation -->
+            <div id="usage-back-container" style="margin: 20px 0; display: none;">
+                <button id="usage-back-btn" class="subnav-btn" style="font-family: 'Outfit', sans-serif; font-size: 1rem; font-weight: 600; padding: 8px 18px;">
+                    <span class="subnav-arrow">&larr;</span> Back
+                </button>
+            </div>
+
+            <!-- Sub-navigation for moving between years / months -->
+            <div id="usage-subnav" class="subnav-container">
+                <button id="subnav-prev-btn" class="subnav-btn">
+                    <span class="subnav-arrow">&larr;</span> <span id="subnav-prev-label">Prev</span>
+                </button>
+                <span id="subnav-current-label" class="subnav-current-label"></span>
+                <button id="subnav-next-btn" class="subnav-btn">
+                    <span id="subnav-next-label">Next</span> <span class="subnav-arrow">&rarr;</span>
+                </button>
+            </div>
+
+            <!-- Hierarchy Containers -->
+            <main id="usage-annual-view" class="cards-container">
                 <div class="empty-state">Calculating your historical benchmarks...</div>
+            </main>
+            
+            <main id="usage-monthly-view" class="cards-container" style="display: none;">
+            </main>
+
+            <main id="usage-daily-view" style="display: none;">
+                <div class="daily-list-container"></div>
             </main>
         </div>
 
@@ -406,7 +498,145 @@
     <script>
         // Global State
         window.dashboardData = [];
+        window.yearlyData = [];
         window.activeModalPeriod = null;
+        window.historyState = { level: 'annual', year: null, period: null };
+
+        // Dummy modal function to not break chart clicks until fully removed
+        function openModal(period, event) {
+            const year = parseInt(period.split('-')[0]);
+            navigateUsage('daily', year, period);
+        }
+
+        function navigateUsage(level, year = null, period = null) {
+            window.historyState.level = level;
+            if (year) window.historyState.year = parseInt(year);
+            if (period) window.historyState.period = period;
+            
+            document.getElementById('usage-annual-view').style.display = 'none';
+            document.getElementById('usage-monthly-view').style.display = 'none';
+            document.getElementById('usage-daily-view').style.display = 'none';
+            
+            const backContainer = document.getElementById('usage-back-container');
+            const backBtn = document.getElementById('usage-back-btn');
+            const subnav = document.getElementById('usage-subnav');
+            
+            if (level === 'annual') {
+                if (backContainer) backContainer.style.display = 'none';
+                if (subnav) subnav.style.display = 'none';
+                document.getElementById('usage-annual-view').style.display = 'grid';
+                renderAnnualView();
+            } else if (level === 'monthly') {
+                if (backContainer) {
+                    backContainer.style.display = 'block';
+                    backBtn.onclick = () => navigateUsage('annual');
+                }
+                document.getElementById('usage-monthly-view').style.display = 'grid';
+                renderMonthlyView(window.historyState.year);
+                updateSubnav();
+            } else if (level === 'daily') {
+                if (backContainer) {
+                    backContainer.style.display = 'block';
+                    backBtn.onclick = () => navigateUsage('monthly', window.historyState.year);
+                }
+                document.getElementById('usage-daily-view').style.display = 'block';
+                renderDailyView(window.historyState.period);
+                updateSubnav();
+            }
+        }
+
+        function updateSubnav() {
+            const subnav = document.getElementById('usage-subnav');
+            const prevBtn = document.getElementById('subnav-prev-btn');
+            const nextBtn = document.getElementById('subnav-next-btn');
+            const prevLabel = document.getElementById('subnav-prev-label');
+            const nextLabel = document.getElementById('subnav-next-label');
+            const currentLabel = document.getElementById('subnav-current-label');
+            
+            if (!subnav || !window.dashboardData || window.dashboardData.length === 0) return;
+            
+            const level = window.historyState.level;
+            
+            if (level === 'monthly') {
+                subnav.style.display = 'flex';
+                const currentYear = window.historyState.year;
+                
+                // Get all unique years sorted ascending
+                const years = window.yearlyData.map(y => y.year).sort((a, b) => a - b);
+                const currentIndex = years.indexOf(currentYear);
+                
+                // Previous Year
+                if (currentIndex > 0) {
+                    const prevYear = years[currentIndex - 1];
+                    prevBtn.disabled = false;
+                    prevLabel.textContent = `${prevYear}`;
+                    prevBtn.onclick = () => navigateUsage('monthly', prevYear);
+                } else {
+                    prevBtn.disabled = true;
+                    prevLabel.textContent = 'Prev Year';
+                    prevBtn.onclick = null;
+                }
+                
+                // Current Label
+                currentLabel.textContent = `${currentYear}`;
+                
+                // Next Year
+                if (currentIndex >= 0 && currentIndex < years.length - 1) {
+                    const nextYear = years[currentIndex + 1];
+                    nextBtn.disabled = false;
+                    nextLabel.textContent = `${nextYear}`;
+                    nextBtn.onclick = () => navigateUsage('monthly', nextYear);
+                } else {
+                    nextBtn.disabled = true;
+                    nextLabel.textContent = 'Next Year';
+                    nextBtn.onclick = null;
+                }
+            } else if (level === 'daily') {
+                subnav.style.display = 'flex';
+                const currentPeriod = window.historyState.period; // "YYYY-MM"
+                
+                // Get unique periods sorted chronologically ascending
+                const periods = [...new Set(window.dashboardData.map(m => m.period))].sort();
+                const currentIndex = periods.indexOf(currentPeriod);
+                
+                // Helper to format period to human readable (e.g., "May 2026")
+                const formatPeriod = (pStr) => {
+                    const d = new Date(pStr + '-02');
+                    return d.toLocaleString('default', { month: 'short', year: 'numeric' });
+                };
+                
+                // Previous Month
+                if (currentIndex > 0) {
+                    const prevPeriod = periods[currentIndex - 1];
+                    const prevYear = parseInt(prevPeriod.split('-')[0]);
+                    prevBtn.disabled = false;
+                    prevLabel.textContent = formatPeriod(prevPeriod);
+                    prevBtn.onclick = () => navigateUsage('daily', prevYear, prevPeriod);
+                } else {
+                    prevBtn.disabled = true;
+                    prevLabel.textContent = 'Prev Month';
+                    prevBtn.onclick = null;
+                }
+                
+                // Current Label
+                currentLabel.textContent = formatPeriod(currentPeriod);
+                
+                // Next Month
+                if (currentIndex >= 0 && currentIndex < periods.length - 1) {
+                    const nextPeriod = periods[currentIndex + 1];
+                    const nextYear = parseInt(nextPeriod.split('-')[0]);
+                    nextBtn.disabled = false;
+                    nextLabel.textContent = formatPeriod(nextPeriod);
+                    nextBtn.onclick = () => navigateUsage('daily', nextYear, nextPeriod);
+                } else {
+                    nextBtn.disabled = true;
+                    nextLabel.textContent = 'Next Month';
+                    nextBtn.onclick = null;
+                }
+            } else {
+                subnav.style.display = 'none';
+            }
+        }
         
         // Chart instances to destroy before recreating
         let overviewChartInstance = null;
@@ -548,14 +778,33 @@
             try {
                 const response = await fetch('/api/thermostat/monthly');
                 const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || `Server error: ${response.status}`);
+                }
+                
+                const responseYearly = await fetch('/api/thermostat/yearly');
+                const yearlyData = await responseYearly.json();
+                if (!responseYearly.ok) {
+                    throw new Error(yearlyData.error || `Server error: ${responseYearly.status}`);
+                }
+
+                const responseRecent = await fetch('/api/thermostat/recent-30-days');
+                let recentData = [];
+                if (responseRecent.ok) {
+                    recentData = await responseRecent.json();
+                } else {
+                    console.error('Failed to load recent 30 days data');
+                }
                 
                 if (!data || data.length === 0) {
-                    document.getElementById('dashboard').innerHTML = '<div class="empty-state">No history found. Connect your Nest account to begin.</div>';
+                    document.getElementById('usage-annual-view').innerHTML = '<div class="empty-state">No history found. Connect your Nest account to begin.</div>';
                     return;
                 }
 
                 // Cache data globally (sort chronologically first for charts, but keep copy)
                 window.dashboardData = data;
+                window.yearlyData = yearlyData;
+                window.recent30DaysData = recentData;
                 
                 // 1. Populate Dropdowns and Checkboxes
                 const years = [...new Set(data.map(m => new Date(m.period + '-02').getFullYear()))].sort((a,b) => b - a);
@@ -678,20 +927,22 @@
                 // Initial Renders
                 updateKPICards();
                 updateOverviewKPIs();
-                renderCards();
+                navigateUsage('annual');
                 renderTrendsCharts();
                 renderEfficiencyChart();
                 renderOverviewChart();
+                renderRecent30DaysChart();
 
                 // Setup interactive legend toggles for mobile viewports
                 setupLegendToggle('toggle-overview-legend', 'overview', () => overviewChartInstance);
+                setupLegendToggle('toggle-recent30-legend', 'recent30', () => recent30DaysChartInstance);
                 setupLegendToggle('toggle-trends-usage-legend', 'trendsUsage', () => trendsUsageChartInstance);
                 setupLegendToggle('toggle-trends-temp-legend', 'trendsTemp', () => trendsTempChartInstance);
                 setupLegendToggle('toggle-efficiency-legend', 'efficiency', () => efficiencyScatterChartInstance);
 
             } catch (err) {
                 console.error(err);
-                document.getElementById('dashboard').innerHTML = `<div class="empty-state">Error loading benchmarks: ${err.message}</div>`;
+                document.getElementById('usage-annual-view').innerHTML = `<div class="empty-state">Error loading benchmarks: ${err.message}</div>`;
             }
         }
 
@@ -973,10 +1224,107 @@
             };
         }
 
+        function renderAnnualView() {
+            const container = document.getElementById('usage-annual-view');
+            const data = window.yearlyData;
+            
+            // Similar logic to max calculations but for yearly
+            let maxCDD = 0, maxHDD = 0, maxCool = 0, maxHeat = 0;
+            data.forEach(m => {
+                const cdd = parseFloat(m.cdd || 0);
+                const hdd = parseFloat(m.hdd || 0);
+                if (cdd > maxCDD) maxCDD = cdd;
+                if (hdd > maxHDD) maxHDD = hdd;
+
+                const coolHrs = parseInt(m.ac_mins || 0) / 60;
+                const heatHrs = parseInt(m.heat_mins || 0) / 60;
+                if (coolHrs > maxCool) maxCool = coolHrs;
+                if (heatHrs > maxHeat) maxHeat = heatHrs;
+            });
+
+            container.innerHTML = data.map(m => {
+                const year = m.year;
+                const cdd = parseFloat(m.cdd || 0);
+                const hdd = parseFloat(m.hdd || 0);
+                const cddPct = maxCDD ? (cdd / maxCDD) * 100 : 0;
+                const hddPct = maxHDD ? (hdd / maxHDD) * 100 : 0;
+
+                const coolHrs = parseInt(m.ac_mins || 0) / 60;
+                const heatHrs = parseInt(m.heat_mins || 0) / 60;
+                const coolPct = maxCool ? (coolHrs / maxCool) * 100 : 0;
+                const heatPct = maxHeat ? (heatHrs / maxHeat) * 100 : 0;
+                
+                let effClass = 'eff-mid';
+                let effLabel = 'Annual Load';
+
+                return `
+                    <div class="premium-card" onclick="navigateUsage('monthly', ${year})">
+                        <div class="card-header">
+                            <div>
+                                <span class="year-label">Year Overview</span>
+                                <div style="display: flex; align-items: center; gap: 10px;">
+                                    <span class="month-label" style="font-size: 1.5rem;">${year}</span>
+                                    <span class="efficiency-badge ${effClass}">${effLabel}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="comparison-block" style="grid-template-columns: 1fr 1fr 1fr; margin-bottom: 10px;">
+                            <div class="temp-stat">
+                                <span class="temp-val" style="color: #ef4444; font-size: 1.3rem;">${m.heat_target_f ? Math.round(m.heat_target_f) : '--'}°</span>
+                                <span class="temp-label">Heat Avg</span>
+                            </div>
+                            <div class="temp-stat">
+                                <span class="temp-val" style="color: #3b82f6; font-size: 1.3rem;">${m.cool_target_f ? Math.round(m.cool_target_f) : '--'}°</span>
+                                <span class="temp-label">Cool Avg</span>
+                            </div>
+                            <div class="temp-stat">
+                                <span class="temp-val" style="color: var(--accent); font-size: 1.3rem;">${m.avg_temp_outdoor ? Math.round(m.avg_temp_outdoor) : '--'}°</span>
+                                <span class="temp-label">Out Mean</span>
+                            </div>
+                        </div>
+
+                        <div class="progress-section v-bars-wrapper">
+                             <div class="v-bar-col">
+                                 <div class="v-bar-title">Env Demand</div>
+                                 <div class="v-bar-container">
+                                     <div class="v-bar-zero"></div>
+                                     <div class="v-bar-top-wrapper">
+                                         <div class="v-bar-top-fill" style="height: ${cddPct}%; background: #ef4444;"></div>
+                                     </div>
+                                     <div class="v-bar-bottom-wrapper">
+                                         <div class="v-bar-bottom-fill" style="height: ${hddPct}%; background: #3b82f6;"></div>
+                                     </div>
+                                     <div class="v-bar-side-label top-side stat-red">${Math.round(cdd)}</div>
+                                     <div class="v-bar-side-label bottom-side stat-blue">${Math.round(hdd)}</div>
+                                 </div>
+                                 <div class="v-bar-unit">DD</div>
+                             </div>
+
+                             <div class="v-bar-col">
+                                 <div class="v-bar-title">HVAC Load</div>
+                                 <div class="v-bar-container">
+                                     <div class="v-bar-zero"></div>
+                                     <div class="v-bar-top-wrapper">
+                                         <div class="v-bar-top-fill" style="height: ${coolPct}%; background: #3b82f6;"></div>
+                                     </div>
+                                     <div class="v-bar-bottom-wrapper">
+                                         <div class="v-bar-bottom-fill" style="height: ${heatPct}%; background: #ef4444;"></div>
+                                     </div>
+                                     <div class="v-bar-side-label top-side stat-blue">${coolHrs.toFixed(0)}</div>
+                                     <div class="v-bar-side-label bottom-side stat-red">${heatHrs.toFixed(0)}</div>
+                                 </div>
+                                 <div class="v-bar-unit">Hrs</div>
+                             </div>
+                         </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
         // Render Monthly cards grid
-        function renderCards() {
-            const container = document.getElementById('dashboard');
-            const data = window.dashboardData;
+        function renderMonthlyView(selectedYear) {
+            const container = document.getElementById('usage-monthly-view');
+            const data = window.dashboardData.filter(m => new Date(m.period + '-02').getFullYear() == selectedYear);
             const { heatStats, coolStats } = getZScoreStats();
             const { maxCDD, maxHDD, maxCool, maxHeat } = getGlobalMaxs();
 
@@ -1028,7 +1376,7 @@
                 }
 
                 return `
-                    <div class="premium-card" onclick="openModal('${m.period}', event)">
+                    <div class="premium-card" onclick="navigateUsage('daily', ${year}, '${m.period}')">
                         <div class="card-header">
                             <div>
                                 <span class="year-label">${year}</span>
@@ -1096,6 +1444,149 @@
                     </div>
                 `;
             }).join('');
+        }
+
+        async function renderDailyView(period) {
+            const container = document.querySelector('#usage-daily-view .daily-list-container');
+            container.innerHTML = '<div class="empty-state">Loading daily breakdown...</div>';
+            
+            try {
+                const res = await fetch(`/api/thermostat/daily?period=${period}`);
+                const data = await res.json();
+                
+                if (!res.ok) {
+                    throw new Error(data.error || `Server error: ${res.status}`);
+                }
+                
+                const getIcon = (iconStr) => {
+                    if (window.weatherIcons && window.weatherIcons[iconStr]) return window.weatherIcons[iconStr];
+                    if (!iconStr) return '🌤️';
+                    if (iconStr.includes('rain')) return '🌧️';
+                    if (iconStr.includes('snow')) return '❄️';
+                    if (iconStr.includes('cloud')) return '☁️';
+                    if (iconStr.includes('clear')) return '☀️';
+                    return '🌤️';
+                };
+
+                const [yearStr, monthStr] = period.split('-');
+                const year = parseInt(yearStr);
+                const month = parseInt(monthStr);
+                
+                const daysInMonth = new Date(year, month, 0).getDate();
+                const startDay = new Date(year, month - 1, 1).getDay();
+
+                const today = new Date();
+                const currentYear = today.getFullYear();
+                const currentMonth = today.getMonth() + 1;
+                const currentDate = today.getDate();
+
+                const dataMap = {};
+                if (data && data.length > 0) {
+                    data.forEach(d => {
+                        if (d.date) {
+                            const dateOnly = d.date.substring(0, 10);
+                            dataMap[dateOnly] = d;
+                        }
+                    });
+                }
+
+                let html = '<div class="calendar-wrapper">';
+                
+                html += `
+                    <div class="calendar-header-row">
+                        <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                    </div>
+                    <div class="calendar-grid">
+                `;
+
+                for (let i = 0; i < startDay; i++) {
+                    html += `<div class="calendar-cell empty-padding"></div>`;
+                }
+
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                    const dayData = dataMap[dateStr];
+                    
+                    const isFuture = (year > currentYear) || 
+                                     (year === currentYear && month > currentMonth) ||
+                                     (year === currentYear && month === currentMonth && day > currentDate);
+                    
+                    if (isFuture) {
+                        html += `
+                            <div class="calendar-cell future-blank">
+                                <div class="cell-date-label">${day}</div>
+                            </div>
+                        `;
+                    } else if (!dayData) {
+                        html += `
+                            <div class="calendar-cell no-data">
+                                <div class="cell-date-label">${day}</div>
+                                <div class="no-data-msg">No Data</div>
+                            </div>
+                        `;
+                    } else {
+                        const d = dayData;
+                        const tmax = d.tmax ? Math.round(d.tmax) : '--';
+                        const tmin = d.tmin ? Math.round(d.tmin) : '--';
+                        const weatherIcon = getIcon(d.icon);
+                        
+                        const actHeat = d.actual_heat_hours || 0;
+                        const actCool = d.actual_ac_hours || 0;
+                        
+                        html += `
+                            <div class="calendar-cell mini-premium-card">
+                                <div class="mini-card-header">
+                                    <span class="cell-date-label">${day}</span>
+                                    <div class="icon-tag" style="padding: 2px 6px; font-size: 0.9rem;">${weatherIcon}</div>
+                                </div>
+                                
+                                <div class="comparison-block mini-comparison" style="grid-template-columns: 1fr 1fr; margin-bottom: 4px; padding: 4px 0; gap: 4px;">
+                                    <div class="temp-stat">
+                                        <span class="temp-val" style="color: #ef4444; font-size: 1rem;">${tmax}°</span>
+                                        <span class="temp-label" style="font-size: 0.65rem;">Hi</span>
+                                    </div>
+                                    <div class="temp-stat">
+                                        <span class="temp-val" style="color: #3b82f6; font-size: 1rem;">${tmin}°</span>
+                                        <span class="temp-label" style="font-size: 0.65rem;">Lo</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="mini-dd-section" style="display: flex; justify-content: space-around; font-size: 0.65rem; color: var(--text-dim); margin-bottom: 8px;">
+                                    <div><span style="color: #ef4444; font-weight: bold;">${Math.round(d.hdd || 0)}</span> HDD</div>
+                                    <div><span style="color: #3b82f6; font-weight: bold;">${Math.round(d.cdd || 0)}</span> CDD</div>
+                                </div>
+
+                                
+                                <div class="mini-runtime-section">
+                                    <div class="progress-group" style="gap: 4px;">
+                                        <div class="progress-label" style="font-size: 0.65rem;">
+                                            <span>Heat</span>
+                                            <span style="color: #ef4444; font-weight: bold;">${actHeat.toFixed(1)}h</span>
+                                        </div>
+                                        <div class="progress-bar-container" style="height: 4px;">
+                                            <div class="progress-fill nest-fill" style="width: ${Math.min((actHeat / 12) * 100, 100)}%; background: #ef4444;"></div>
+                                        </div>
+                                        
+                                        <div class="progress-label" style="font-size: 0.65rem; margin-top: 2px;">
+                                            <span>Cool</span>
+                                            <span style="color: #3b82f6; font-weight: bold;">${actCool.toFixed(1)}h</span>
+                                        </div>
+                                        <div class="progress-bar-container" style="height: 4px;">
+                                            <div class="progress-fill nest-fill" style="width: ${Math.min((actCool / 12) * 100, 100)}%; background: #3b82f6;"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }
+
+                html += `</div></div>`;
+                container.innerHTML = html;
+                
+            } catch(e) {
+                container.innerHTML = `<div class="empty-state">Error: ${e.message}</div>`;
+            }
         }
 
         // 1. Overview Tab: Dual-Axis Timeline Chart
@@ -1211,6 +1702,116 @@
                             const index = elements[0].index;
                             const clickedPeriod = filteredData[index].period;
                             openModal(clickedPeriod, event.native);
+                        }
+                    }
+                }
+            });
+        }
+
+        // 30-Day Daily Timeline Chart
+        function renderRecent30DaysChart() {
+            if (!window.recent30DaysData || window.recent30DaysData.length === 0) return;
+
+            // Sort chronologically just in case
+            const filteredData = [...window.recent30DaysData].sort((a, b) => a.date.localeCompare(b.date));
+
+            const labels = filteredData.map(m => {
+                const d = new Date(m.date);
+                return d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+            });
+
+            const heatHrs = filteredData.map(m => parseFloat(m.actual_heat_hours || 0));
+            const coolHrs = filteredData.map(m => parseFloat(m.actual_ac_hours || 0));
+            const hdds = filteredData.map(m => parseFloat(m.hdd || 0));
+            const cdds = filteredData.map(m => parseFloat(m.cdd || 0));
+
+            if (window.recent30DaysChartInstance) {
+                window.recent30DaysChartInstance.destroy();
+            }
+
+            const ctx = document.getElementById('recent30DaysChart').getContext('2d');
+            window.recent30DaysChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Heating Runtime (Hrs)',
+                            data: heatHrs,
+                            backgroundColor: 'rgba(239, 68, 68, 0.75)',
+                            borderColor: '#ef4444',
+                            borderWidth: 1,
+                            yAxisID: 'y',
+                            stack: 'runtime'
+                        },
+                        {
+                            label: 'Cooling Runtime (Hrs)',
+                            data: coolHrs,
+                            backgroundColor: 'rgba(59, 130, 246, 0.75)',
+                            borderColor: '#3b82f6',
+                            borderWidth: 1,
+                            yAxisID: 'y',
+                            stack: 'runtime'
+                        },
+                        {
+                            label: 'Heating Demand (HDD)',
+                            data: hdds,
+                            type: 'line',
+                            borderColor: 'rgba(248, 113, 113, 0.8)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 3,
+                            borderDash: [5, 5],
+                            pointBackgroundColor: '#ef4444',
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Cooling Demand (CDD)',
+                            data: cdds,
+                            type: 'line',
+                            borderColor: 'rgba(96, 165, 250, 0.8)',
+                            backgroundColor: 'transparent',
+                            borderWidth: 3,
+                            borderDash: [5, 5],
+                            pointBackgroundColor: '#3b82f6',
+                            tension: 0.3,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: window.legendPreferences.recent30,
+                            labels: { color: '#94a3b8', font: { family: 'Inter', weight: '500' } }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleFont: { family: 'Outfit', size: 14 },
+                            bodyFont: { family: 'Inter' },
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 12
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' }
+                        },
+                        y: {
+                            position: 'left',
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'HVAC Runtime (Hours)', color: '#94a3b8' }
+                        },
+                        y1: {
+                            position: 'right',
+                            grid: { drawOnChartArea: false },
+                            ticks: { color: '#94a3b8' },
+                            title: { display: true, text: 'Degree Days (DD)', color: '#94a3b8' }
                         }
                     }
                 }

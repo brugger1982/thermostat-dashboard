@@ -134,7 +134,9 @@ app.get('/api/forecast/7day', async (req, res) => {
                 cloudcover::float as cloudcover,
                 precip::float as precip,
                 precipprob::float as precipprob,
-                conditions
+                conditions,
+                COALESCE(est_heat_mins, 0)::float as est_heat_mins,
+                COALESCE(est_ac_mins, 0)::float as est_ac_mins
             FROM weather_forecast
             WHERE date >= CURRENT_DATE
             ORDER BY date ASC
@@ -143,8 +145,8 @@ app.get('/api/forecast/7day', async (req, res) => {
 
         if (forecastRes.rows.length < 7) {
             console.log(`DEBUG: Only ${forecastRes.rows.length} forecast days available (need 7). Performing automatic on-the-fly sync...`);
-            // Purge stale past-date rows before re-syncing
-            await weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`);
+            // Purge stale past-date rows before re-syncing (Disabled to preserve usage history comparisons)
+            // await weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`);
             await weather.syncForecast();
             forecastRes = await weather.pool.query(`
                 SELECT 
@@ -189,29 +191,9 @@ app.get('/api/forecast/7day', async (req, res) => {
             const hddVal = parseFloat(day.hdd) || 0;
             const cddVal = parseFloat(day.cdd) || 0;
 
-            // Non-linear Heating runtime prediction
-            let predictedHeatMins = 0;
-            if (hddVal < 0.6) {
-                predictedHeatMins = 0;
-            } else if (hddVal < 5.0) {
-                // Buffer band: mild weather with very low runtime probability (~15% scale)
-                predictedHeatMins = Math.round(hddVal * heatEff * 0.15);
-            } else {
-                // Sustained heating
-                predictedHeatMins = Math.round(hddVal * heatEff);
-            }
-
-            // Non-linear Cooling runtime prediction
-            let predictedAcMins = 0;
-            if (cddVal < 0.3) {
-                predictedAcMins = 0;
-            } else if (cddVal < 3.0) {
-                // Buffer band: mild-to-warm weather with low runtime probability (~35% scale)
-                predictedAcMins = Math.round(cddVal * coolEff * 0.35);
-            } else {
-                // Sustained cooling
-                predictedAcMins = Math.round(cddVal * coolEff);
-            }
+            // Predictions are now pre-calculated in weatherService during sync
+            let predictedHeatMins = day.est_heat_mins;
+            let predictedAcMins = day.est_ac_mins;
             
             let recommendedMode = 'Off';
             let recommendedSetpoint = null;
@@ -285,6 +267,85 @@ app.get('/api/forecast/7day', async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+app.get('/api/thermostat/yearly', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                EXTRACT(YEAR FROM TO_DATE(period || '-01', 'YYYY-MM-DD'))::int as year,
+                SUM(total_heat_mins) as heat_mins,
+                SUM(total_ac_mins) as ac_mins,
+                AVG(heat_target_f) as heat_target_f,
+                AVG(cool_target_f) as cool_target_f,
+                SUM(total_hdd) as hdd,
+                SUM(total_cdd) as cdd,
+                AVG(avg_temp_outdoor) as avg_temp_outdoor
+            FROM v_monthly_analytics
+            GROUP BY EXTRACT(YEAR FROM TO_DATE(period || '-01', 'YYYY-MM-DD'))
+            ORDER BY year DESC
+        `;
+        const result = await weather.pool.query(query);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/thermostat/daily', async (req, res) => {
+    try {
+        const period = req.query.period;
+        if (!period) return res.status(400).json({ error: "Missing period parameter (YYYY-MM)" });
+
+        const [year, month] = period.split('-');
+        
+        const query = `
+            SELECT 
+                COALESCE(w.date, t.date) as date,
+                COALESCE(w.hdd, 0)::float as hdd,
+                COALESCE(w.cdd, 0)::float as cdd,
+                w.tmax, w.tmin, w.temp_avg,
+                (COALESCE(t.heat_mins, 0) / 60.0)::float as actual_heat_hours,
+                (COALESCE(t.ac_mins, 0) / 60.0)::float as actual_ac_hours,
+                (wf.est_heat_mins / 60.0)::float as est_heat_hours,
+                (wf.est_ac_mins / 60.0)::float as est_ac_hours,
+                wf.icon
+            FROM weather_daily w
+            FULL OUTER JOIN thermostat_runtime t ON w.date = t.date
+            LEFT JOIN weather_forecast wf ON COALESCE(w.date, t.date) = wf.date
+            WHERE EXTRACT(YEAR FROM COALESCE(w.date, t.date)) = $1 
+              AND EXTRACT(MONTH FROM COALESCE(w.date, t.date)) = $2
+            ORDER BY COALESCE(w.date, t.date) DESC
+        `;
+        const result = await weather.pool.query(query, [year, month]);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/thermostat/recent-30-days', async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                COALESCE(w.date, t.date) as date,
+                COALESCE(w.hdd, 0)::float as hdd,
+                COALESCE(w.cdd, 0)::float as cdd,
+                w.tmax, w.tmin, w.temp_avg,
+                (COALESCE(t.heat_mins, 0) / 60.0)::float as actual_heat_hours,
+                (COALESCE(t.ac_mins, 0) / 60.0)::float as actual_ac_hours
+            FROM weather_daily w
+            FULL OUTER JOIN thermostat_runtime t ON w.date = t.date
+            WHERE COALESCE(w.date, t.date) >= CURRENT_DATE - INTERVAL '30 days'
+              AND COALESCE(w.date, t.date) <= CURRENT_DATE
+            ORDER BY COALESCE(w.date, t.date) ASC
+        `;
+        const result = await weather.pool.query(query);
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 
 app.get('/api/thermostat/monthly', async (req, res) => {
     try {
@@ -397,6 +458,8 @@ app.listen(PORT, async () => {
         `);
         await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS icon VARCHAR');
         await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS cloudcover NUMERIC');
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS est_heat_mins NUMERIC');
+        await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS est_ac_mins NUMERIC');
         await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS precip NUMERIC');
         await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS precipprob NUMERIC');
         await weather.pool.query('ALTER TABLE weather_forecast ADD COLUMN IF NOT EXISTS conditions VARCHAR');
@@ -446,13 +509,15 @@ app.listen(PORT, async () => {
 
     // Auto-sync forecast on startup and every 6 hours
     console.log("🌤️ Syncing weather forecast...");
-    weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`)
-        .then(() => weather.syncForecast())
+    // weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`)
+    //     .then(() => weather.syncForecast())
+    weather.syncForecast()
         .catch(err => console.error("⚠️ Initial forecast sync failed:", err.message));
     setInterval(() => {
         console.log("🌤️ Scheduled forecast refresh...");
-        weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`)
-            .then(() => weather.syncForecast())
+        // weather.pool.query(`DELETE FROM weather_forecast WHERE date < CURRENT_DATE`)
+        //     .then(() => weather.syncForecast())
+        weather.syncForecast()
             .catch(err => console.error("⚠️ Scheduled forecast sync failed:", err.message));
     }, 6 * 60 * 60 * 1000); // Every 6 hours
 

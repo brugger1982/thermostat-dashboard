@@ -48,6 +48,7 @@ header {
 }
 
 .brand p {
+    
     color: var(--text-dim);
     font-size: 1rem;
     margin-top: 4px;
@@ -283,15 +284,7 @@ footer {
     display: none;
 }
 
-.checkbox-label {
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid var(--glass-border);
-    color: var(--text-dim);
-    padding: 6px 14px;
-    border-radius: 100px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: all 0.2s;
+.checkbox-label {0.2s;
     user-select: none;
 }
 
@@ -1086,5 +1079,204 @@ footer {
     .chart-header h4, .trends-grid h4 {
         font-size: 0.9rem !important;
         line-height: 1.4 !important;
+    }
+}
+ / *   - - -   H i e r a r c h i c a l   N a v i g a t i o n   ( B r e a d c r u m b s )   - - -   * / 
+ . b r e a d c r u m b s   { 
+         d i s p l a y :   f l e x ; 
+         a l i g n - i t e m s :   c e n t e r ; 
+         b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 3 ) ; 
+         p a d d i n g :   1 2 p x   2 0 p x ; 
+         b o r d e r - r a d i u s :   1 2 p x ; 
+         b o r d e r :   1 p x   s o l i d   v a r ( - - g l a s s - b o r d e r ) ; 
+ } 
+ . c r u m b : h o v e r   {   c o l o r :   # f f f   ! i m p o r t a n t ;   } 
+ 
+ / *   - - -   D a i l y   U s a g e   L i s t   V i e w   - - -   * / 
+ . d a i l y - l i s t - c o n t a i n e r   { 
+         d i s p l a y :   f l e x ; 
+         f l e x - d i r e c t i o n :   c o l u m n ; 
+         g a p :   1 2 p x ; 
+         m a r g i n - b o t t o m :   4 0 p x ; 
+ } 
+ . d a i l y - r o w   { 
+         d i s p l a y :   g r i d ; 
+         g r i d - t e m p l a t e - c o l u m n s :   1 8 0 p x   1 2 0 p x   1 f r   1 5 0 p x ; 
+         a l i g n - i t e m s :   c e n t e r ; 
+         b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 3 ) ; 
+         b o r d e r :   1 p x   s o l i d   v a r ( - - g l a s s - b o r d e r ) ; 
+         b o r d e r - r a d i u s :   1 6 p x ; 
+         p a d d i n g :   1 6 p x   2 4 p x ; 
+         t r a n s i t i o n :   b a c k g r o u n d   0 . 2 s ; 
+ } 
+ . d a i l y - r o w : h o v e r   {   b a c k g r o u n d :   r g b a ( 2 5 5 ,   2 5 5 ,   2 5 5 ,   0 . 0 6 ) ;   } 
+ . d a t e - b l o c k   {   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   } 
+ . d a y - n a m e   {   f o n t - f a m i l y :   ' O u t f i t ' ;   f o n t - s i z e :   1 . 2 r e m ;   f o n t - w e i g h t :   7 0 0 ;   c o l o r :   # f f f ;   } 
+ . d a t e - s t r   {   f o n t - s i z e :   0 . 8 5 r e m ;   c o l o r :   v a r ( - - t e x t - d i m ) ;   } 
+ . w e a t h e r - i c o n   {   f o n t - s i z e :   1 . 5 r e m ;   m a r g i n - t o p :   4 p x ;   } 
+ 
+ . t e m p - b l o c k   {   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   g a p :   4 p x ;   } 
+ . h i - l o   {   f o n t - f a m i l y :   ' O u t f i t ' ;   f o n t - s i z e :   1 . 1 r e m ;   c o l o r :   # f f f ;   } 
+ . a v g   {   f o n t - s i z e :   0 . 8 r e m ;   c o l o r :   v a r ( - - t e x t - d i m ) ;   t e x t - t r a n s f o r m :   u p p e r c a s e ;   l e t t e r - s p a c i n g :   0 . 5 p x ; } 
+ 
+ . r u n t i m e - b l o c k   {   d i s p l a y :   f l e x ;   g a p :   4 0 p x ;   } 
+ . r u n t i m e - s t a t   {   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   g a p :   4 p x ;   } 
+ . r u n t i m e - s t a t . h e a t   . v a l   {   c o l o r :   # e f 4 4 4 4 ;   f o n t - f a m i l y :   ' O u t f i t ' ;   f o n t - s i z e :   1 . 3 r e m ;   f o n t - w e i g h t :   7 0 0 ;   } 
+ . r u n t i m e - s t a t . c o o l   . v a l   {   c o l o r :   # 3 b 8 2 f 6 ;   f o n t - f a m i l y :   ' O u t f i t ' ;   f o n t - s i z e :   1 . 3 r e m ;   f o n t - w e i g h t :   7 0 0 ;   } 
+ . e s t - b l o c k   {   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   g a p :   4 p x ;   m a r g i n - t o p :   4 p x ; } 
+ . e s t - l b l   {   f o n t - s i z e :   0 . 7 5 r e m ;   c o l o r :   v a r ( - - t e x t - d i m ) ;   } 
+ . d e l t a - i n d i c a t o r   {   w i d t h :   5 0 p x ;   h e i g h t :   4 p x ;   b a c k g r o u n d :   r g b a ( 2 5 5 , 2 5 5 , 2 5 5 , 0 . 1 ) ;   b o r d e r - r a d i u s :   2 p x ;   o v e r f l o w :   h i d d e n ;   p o s i t i o n :   r e l a t i v e ; } 
+ . d e l t a - b a r   {   h e i g h t :   1 0 0 % ;   p o s i t i o n :   a b s o l u t e ;   l e f t :   0 ;   t o p :   0 ;   b o r d e r - r a d i u s :   2 p x ;   } 
+ . d e l t a - b a r . b a d   {   b a c k g r o u n d :   # e f 4 4 4 4 ;   } 
+ . d e l t a - b a r . g o o d   {   b a c k g r o u n d :   # 1 0 b 9 8 1 ;   } 
+ . d e l t a - b a r . n e u t r a l   {   b a c k g r o u n d :   v a r ( - - t e x t - d i m ) ;   } 
+ 
+ . d e m a n d - b l o c k   {   d i s p l a y :   f l e x ;   f l e x - d i r e c t i o n :   c o l u m n ;   g a p :   8 p x ;   f o n t - s i z e :   0 . 8 5 r e m ;   c o l o r :   v a r ( - - t e x t - d i m ) ;   a l i g n - i t e m s :   f l e x - e n d ; } 
+ . d d - s t a t   {   f o n t - w e i g h t :   6 0 0 ;   } 
+ . h d d - v a l   {   c o l o r :   # e f 4 4 4 4 ;   f o n t - s i z e :   1 r e m ;   } 
+ . c d d - v a l   {   c o l o r :   # 3 b 8 2 f 6 ;   f o n t - s i z e :   1 r e m ;   } 
+ 
+ @ m e d i a   ( m a x - w i d t h :   7 6 8 p x )   { 
+         . d a i l y - r o w   { 
+                 g r i d - t e m p l a t e - c o l u m n s :   1 f r ; 
+                 g a p :   1 6 p x ; 
+                 p a d d i n g :   2 0 p x ; 
+         } 
+         . r u n t i m e - b l o c k   {   j u s t i f y - c o n t e n t :   s p a c e - b e t w e e n ;   } 
+         . d e m a n d - b l o c k   {   a l i g n - i t e m s :   f l e x - s t a r t ;   f l e x - d i r e c t i o n :   r o w ;   g a p :   2 0 p x ; } 
+ } 
+  
+ 
+
+/* --- Daily Usage Calendar View --- */
+.calendar-wrapper {
+    background: var(--card-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 40px;
+}
+.calendar-header-row {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    text-align: center;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--text-dim);
+    margin-bottom: 15px;
+    gap: 8px;
+}
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}
+.calendar-cell {
+    aspect-ratio: 0.85;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s;
+}
+.calendar-cell:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+.calendar-cell.empty-padding {
+    background: transparent;
+    border: none;
+    pointer-events: none;
+}
+.calendar-cell.future-blank {
+    background: rgba(255, 255, 255, 0.01);
+    opacity: 0.5;
+}
+.calendar-cell.no-data {
+    background: rgba(255, 255, 255, 0.02);
+    opacity: 0.7;
+    justify-content: center;
+    align-items: center;
+}
+.no-data-msg {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    font-style: italic;
+    margin-top: 10px;
+}
+
+/* Mini Premium Card inside Calendar Cell */
+.mini-premium-card {
+    cursor: pointer;
+}
+.mini-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.cell-date-label {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    font-size: 1.2rem;
+    color: var(--text);
+}
+.mini-comparison {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+}
+.mini-runtime-section {
+    margin-top: auto;
+}
+.runtime-bar-bg {
+    background: rgba(0,0,0,0.4);
+    height: 4px;
+    border-radius: 2px;
+    overflow: hidden;
+}
+.runtime-bar-fill {
+    height: 100%;
+    border-radius: 2px;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .calendar-header-row {
+        display: none;
+    }
+    .calendar-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    .calendar-cell {
+        aspect-ratio: auto;
+        min-height: 100px;
+        flex-direction: row;
+        align-items: center;
+        padding: 16px;
+        gap: 20px;
+    }
+    .calendar-cell.empty-padding {
+        display: none;
+    }
+    .mini-card-header {
+        flex-direction: column;
+        margin-bottom: 0;
+        align-items: flex-start;
+        gap: 8px;
+        width: 60px;
+    }
+    .mini-comparison {
+        margin-bottom: 0 !important;
+        flex: 1;
+        background: transparent;
+    }
+    .mini-runtime-section {
+        flex: 1;
+        margin-top: 0;
     }
 }

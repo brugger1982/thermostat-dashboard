@@ -188,6 +188,17 @@ class WeatherService {
         const data = await res.json();
         const days = data.days;
         
+        // Fetch efficiency multiplier
+        let eff = { heat_efficiency: 30.0, cool_efficiency: 45.0 };
+        try {
+            const effRes = await this.pool.query(`SELECT * FROM v_recent_efficiency LIMIT 1`);
+            if (effRes.rows.length > 0) eff = effRes.rows[0];
+        } catch (e) {
+            console.log("DEBUG: No recent efficiency found, using defaults");
+        }
+        const heatEff = parseFloat(eff.heat_efficiency);
+        const coolEff = parseFloat(eff.cool_efficiency);
+
         console.log(`DEBUG: Syncing ${days.length} forecast days into the database...`);
         
         for (const day of days) {
@@ -201,11 +212,24 @@ class WeatherService {
                 cdd = Math.max(0, day.temp - 65);
             }
 
+            const hddVal = parseFloat(hdd) || 0;
+            const cddVal = parseFloat(cdd) || 0;
+
+            let estHeatMins = 0;
+            if (hddVal < 0.6) estHeatMins = 0;
+            else if (hddVal < 5.0) estHeatMins = Math.round(hddVal * heatEff * 0.15);
+            else estHeatMins = Math.round(hddVal * heatEff);
+
+            let estAcMins = 0;
+            if (cddVal < 0.3) estAcMins = 0;
+            else if (cddVal < 3.0) estAcMins = Math.round(cddVal * coolEff * 0.35);
+            else estAcMins = Math.round(cddVal * coolEff);
+
             await this.pool.query(
                 `INSERT INTO weather_forecast (
-                    date, hdd, cdd, tmax, tmin, temp_avg, humidity, solar_rad, wind_speed, last_updated, icon, cloudcover, precip, precipprob, conditions
+                    date, hdd, cdd, tmax, tmin, temp_avg, humidity, solar_rad, wind_speed, last_updated, icon, cloudcover, precip, precipprob, conditions, est_heat_mins, est_ac_mins
                 ) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, $11, $12, $13, $14) 
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10, $11, $12, $13, $14, $15, $16) 
                  ON CONFLICT (date) DO UPDATE SET
                     hdd = EXCLUDED.hdd,
                     cdd = EXCLUDED.cdd,
@@ -220,7 +244,9 @@ class WeatherService {
                     cloudcover = EXCLUDED.cloudcover,
                     precip = EXCLUDED.precip,
                     precipprob = EXCLUDED.precipprob,
-                    conditions = EXCLUDED.conditions`,
+                    conditions = EXCLUDED.conditions,
+                    est_heat_mins = EXCLUDED.est_heat_mins,
+                    est_ac_mins = EXCLUDED.est_ac_mins`,
                 [
                     day.datetime, 
                     hdd, 
@@ -235,7 +261,9 @@ class WeatherService {
                     day.cloudcover,
                     day.precip,
                     day.precipprob,
-                    day.conditions
+                    day.conditions,
+                    estHeatMins,
+                    estAcMins
                 ]
             );
         }
