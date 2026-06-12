@@ -777,11 +777,11 @@
                     const tempLo = Math.round(today.tmin);
                     const condition = today.conditions || 'Clear';
                     const icon = weatherIcons[today.icon] || '🌤️';
-                    const estRuntime = today.predicted_total_mins;
+                    const estRuntime = today.predicted_total_hours;
 
                     document.getElementById('overview-kpi-today-weather').innerHTML = `${icon} ${tempHi}° <span style="font-size: 1.1rem; font-weight: 400; color: var(--text-dim);">/ ${tempLo}°</span>`;
                     document.getElementById('overview-kpi-today-cond').textContent = condition;
-                    document.getElementById('overview-kpi-today-usage').textContent = estRuntime > 0 ? `${estRuntime}m` : '0m';
+                    document.getElementById('overview-kpi-today-usage').textContent = estRuntime > 0 ? `${estRuntime.toFixed(1)} hrs` : '0.0 hrs';
                 }
             } catch (err) {
                 console.error("Error fetching overview today forecast:", err);
@@ -2200,8 +2200,8 @@
                             <div class="strategy-block">
                                 <div class="strategy-badge ${strategyClass}">${strategyText}</div>
                                 <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-dim); margin-top: 5px;">
-                                    <span>🔥 Est. Heat: ${Math.round(d.predicted_heat_mins)} mins</span>
-                                    <span>❄️ Est. Cool: ${Math.round(d.predicted_ac_mins)} mins</span>
+                                    <span>🔥 Est. Heat: ${d.predicted_heat_hours.toFixed(1)} hours</span>
+                                    <span>❄️ Est. Cool: ${d.predicted_ac_hours.toFixed(1)} hours</span>
                                 </div>
                             </div>
                         </div>
@@ -2290,8 +2290,8 @@
                 data: {
                     labels: labels,
                     datasets: [
-                        { label: 'Est. Heating (Mins)', data: days.map(d => d.predicted_heat_mins), backgroundColor: 'rgba(239, 68, 68, 0.8)', stack: 'energy' },
-                        { label: 'Est. Cooling (Mins)', data: days.map(d => d.predicted_ac_mins), backgroundColor: 'rgba(59, 130, 246, 0.8)', stack: 'energy' }
+                        { label: 'Est. Heating (Hours)', data: days.map(d => d.predicted_heat_hours), backgroundColor: 'rgba(239, 68, 68, 0.8)', stack: 'energy' },
+                        { label: 'Est. Cooling (Hours)', data: days.map(d => d.predicted_ac_hours), backgroundColor: 'rgba(59, 130, 246, 0.8)', stack: 'energy' }
                     ]
                 },
                 options: {
@@ -2304,7 +2304,7 @@
                     },
                     scales: {
                         x: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' } },
-                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'HVAC Runtime (Mins)', color: '#94a3b8' } }
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.05)' }, ticks: { color: '#94a3b8' }, title: { display: true, text: 'HVAC Runtime (Hours)', color: '#94a3b8' } }
                     }
                 }
             });
