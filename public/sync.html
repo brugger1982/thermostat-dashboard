@@ -30,10 +30,10 @@
         .density-section { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--glass-border); border-radius: 20px; padding: 24px; margin-bottom: 40px; }
         .density-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14px, 1fr)); gap: 4px; margin-top: 15px; }
         .day-block { aspect-ratio: 1; border-radius: 2px; background: rgba(255, 255, 255, 0.1); position: relative; cursor: help; }
-        .day-block.full { background: #10b981; }
-        .day-block.partial { background: #f59e0b; }
-        .day-block.gaps { background: #f97316; }
-        .day-block.empty { background: #ef4444; }
+        .day-block.full, .dot.full { background: #065f46; } /* Dark Green */
+        .day-block.high, .dot.high { background: #10b981; } /* Light Green */
+        .day-block.medium, .dot.medium { background: #fbbf24; } /* Yellow */
+        .day-block.low, .dot.low { background: #ef4444; } /* Red */
         .day-block.stale {
             position: relative;
         }
@@ -71,9 +71,6 @@
         .month-name { font-weight: 600; margin-bottom: 12px; display: block; }
         .indicator { display: flex; align-items: center; gap: 8px; font-size: 0.85rem; margin-bottom: 6px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; }
-        .dot.full { background: #10b981; }
-        .dot.partial { background: #f59e0b; }
-        .dot.empty { background: #ef4444; }
     </style>
 </head>
 <body>
@@ -157,11 +154,12 @@
 
                 // Today's sample count — shows polling activity level, not just last write time
                 const todaySamples = parseInt(data.health.today_samples) || 0;
-                const expectedByNow = Math.floor(((new Date().getHours() * 60 + new Date().getMinutes())) / 1); // minutes elapsed today
-                const expectedSamples = Math.floor(expectedByNow / 1); // 1 sample/min = 60/hr, poller runs every 60s
                 const sampleEl = document.getElementById('nest-samples');
-                // Expected: ~1 sample per minute the poller ran = hours_elapsed * 60
-                const hoursElapsed = new Date().getHours() + new Date().getMinutes() / 60;
+                
+                // Since the database uses UTC dates and counts samples per UTC day,
+                // we must calculate today's expected samples using elapsed UTC minutes.
+                const nowObj = new Date();
+                const hoursElapsed = nowObj.getUTCHours() + nowObj.getUTCMinutes() / 60;
                 const roughExpected = Math.round(hoursElapsed * 60);
                 const pct = roughExpected > 0 ? Math.round((todaySamples / roughExpected) * 100) : 0;
                 let sampleColor = '#10b981';
@@ -169,31 +167,38 @@
                 else if (pct < 85) sampleColor = '#f59e0b';
                 sampleEl.innerHTML = `Today: <span style="color:${sampleColor};font-weight:600">${todaySamples} samples</span> <span style="opacity:0.5">(~${roughExpected} expected)</span>`;
 
-                document.getElementById('weather-time').innerText = "Latest Data: " + (weatherLast ? new Date(weatherLast).toLocaleDateString() : "--");
+                document.getElementById('weather-time').innerText = "Latest Data: " + (weatherLast ? new Date(weatherLast).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }) : "--");
 
                 const STALE_MS = 26 * 60 * 60 * 1000; // 26 hours
                 const now = Date.now();
+                const expected = 1440; // 1440 samples expected per day (1 per min)
+                const grid = document.getElementById('density-grid');
                 grid.innerHTML = data.daily.map(day => {
-                    const date = new Date(day.date).toLocaleDateString();
+                    const dateObj = new Date(day.date);
+                    const date = `${dateObj.getUTCMonth() + 1}/${dateObj.getUTCDate()}/${dateObj.getUTCFullYear()}`;
                     const confidence = Math.min(100, Math.round((day.sample_count / expected) * 100));
                     const lastUpdated = day.last_updated ? new Date(day.last_updated) : null;
                     const isStale = !lastUpdated || (now - lastUpdated.getTime()) > STALE_MS;
-                    let colorClass = "full";
-                    if (confidence < 20) colorClass = "empty";
-                    else if (confidence < 70) colorClass = "gaps";
-                    else if (confidence < 98) colorClass = "partial";
+                    
+                    let colorClass = "high"; // Light green for [92%, 100%)
+                    if (confidence >= 100) colorClass = "full"; // Dark green for 100%
+                    else if (confidence >= 20 && confidence < 92) colorClass = "medium"; // Yellow for [20%, 92%)
+                    else if (confidence < 20) colorClass = "low"; // Red for < 20%
+                    
                     const staleClass = isStale ? " stale" : "";
                     const staleNote = isStale ? `<br>⚠️ Stale: last write ${lastUpdated ? getTimeAgo(lastUpdated) : 'never'}` : '';
                     const sourceLabel = day.data_source === 'takeout' ? '📦 Takeout (authoritative)' : '📡 Polling';
-                    return `<div class="day-block ${colorClass}${staleClass}"><div class="tooltip">${date}<br>Source: ${sourceLabel}<br>Confidence: ${confidence}%<br>Samples: ${day.sample_count}/${expected}${staleNote}</div></div>`;
+                    
+                    const checkmark = confidence >= 100 ? " ✔" : "";
+                    return `<div class="day-block ${colorClass}${staleClass}"><div class="tooltip">${date}<br>Source: ${sourceLabel}<br>Confidence: ${confidence}%${checkmark}<br>Samples: ${day.sample_count}/${expected}${staleNote}</div></div>`;
                 }).join('');
 
                 const years = {};
                 data.coverage.forEach(row => {
                     const date = new Date(row.month);
-                    const y = date.getFullYear();
-                    const m = date.getMonth() + 1;
-                    const daysInMonth = new Date(y, m, 0).getDate();
+                    const y = date.getUTCFullYear();
+                    const m = date.getUTCMonth() + 1;
+                    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
                     if (!years[y]) years[y] = [];
                     years[y].push({
                         month: m,
@@ -227,11 +232,23 @@
                             <div class="month-grid">
                                 ${months.sort((a,b) => a.month - b.month).map(m => {
                                     const monthName = new Date(2000, m.month - 1).toLocaleString('default', { month: 'long' });
-                                    const wStatus = m.weather_days >= m.total_days ? 'full' : (m.weather_days > 0 ? 'partial' : 'empty');
-                                    const nStatus = m.thermostat_days >= m.total_days ? 'full' : (m.thermostat_days > 0 ? 'partial' : 'empty');
-                                    const expectedInMonth = m.total_days * 720;
+                                    
+                                    const wPct = Math.round((m.weather_days / m.total_days) * 100);
+                                    let wStatus = "low";
+                                    if (wPct >= 100) wStatus = "full";
+                                    else if (wPct >= 92) wStatus = "high";
+                                    else if (wPct >= 20) wStatus = "medium";
+                                    
+                                    const expectedInMonth = m.total_days * 1440;
                                     const mConfidence = Math.min(100, Math.round((m.total_samples / expectedInMonth) * 100));
-                                    return `<div class="month-card"><span class="month-name">${monthName}</span><div class="indicator"><div class="dot ${wStatus}"></div><span class="text-dim">Weather: ${m.weather_days}/${m.total_days}</span></div><div class="indicator"><div class="dot ${nStatus}"></div><span class="text-dim">Confidence: ${mConfidence}%</span></div></div>`;
+                                    
+                                    let nStatus = "low";
+                                    if (mConfidence >= 100) nStatus = "full";
+                                    else if (mConfidence >= 92) nStatus = "high";
+                                    else if (mConfidence >= 20) nStatus = "medium";
+                                    
+                                    const checkmark = mConfidence >= 100 ? " ✔" : "";
+                                    return `<div class="month-card"><span class="month-name">${monthName}</span><div class="indicator"><div class="dot ${wStatus}"></div><span class="text-dim">Weather: ${m.weather_days}/${m.total_days}</span></div><div class="indicator"><div class="dot ${nStatus}"></div><span class="text-dim">Confidence: ${mConfidence}%${checkmark}</span></div></div>`;
                                 }).join('')}
                             </div>
                         </div>`;

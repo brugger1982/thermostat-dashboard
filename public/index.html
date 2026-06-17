@@ -1778,7 +1778,7 @@
 
             const labels = filteredData.map(m => {
                 const d = new Date(m.date);
-                return d.toLocaleDateString('default', { month: 'short', day: 'numeric' });
+                return d.toLocaleDateString('default', { month: 'short', day: 'numeric', timeZone: 'UTC' });
             });
 
             const heatHrs = filteredData.map(m => parseFloat(m.actual_heat_hours || 0));
@@ -2653,28 +2653,32 @@
                 else if (nestDiff < 3600) { nStatus.innerText = "Delayed"; nDot.className = "pulse-dot warning"; }
                 else { nStatus.innerText = "Inactive"; nDot.className = "pulse-dot error"; }
                 document.getElementById('nest-time').innerText = "Last Heartbeat: " + getTimeAgo(nestLast);
-                document.getElementById('weather-time').innerText = "Latest Data: " + (weatherLast ? new Date(weatherLast).toLocaleDateString() : "--");
+                document.getElementById('weather-time').innerText = "Latest Data: " + (weatherLast ? new Date(weatherLast).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }) : "--");
 
                 const grid = document.getElementById('density-grid');
-                const expected = 720;
+                const expected = 1440;
                 if (data.daily && Array.isArray(data.daily)) {
                     grid.innerHTML = data.daily.map(day => {
-                        const date = new Date(day.date).toLocaleDateString();
+                        const dateObj = new Date(day.date);
+                        const date = `${dateObj.getUTCMonth() + 1}/${dateObj.getUTCDate()}/${dateObj.getUTCFullYear()}`;
                         const confidence = Math.min(100, Math.round((day.sample_count / expected) * 100));
-                        let colorClass = "full";
-                        if (confidence < 20) colorClass = "empty";
-                        else if (confidence < 70) colorClass = "gaps";
-                        else if (confidence < 98) colorClass = "partial";
-                        return `<div class="day-block ${colorClass}"><div class="tooltip">${date}<br>Confidence: ${confidence}%<br>Samples: ${day.sample_count}/${expected}</div></div>`;
+                        
+                        let colorClass = "high"; // Light green for [92%, 100%)
+                        if (confidence >= 100) colorClass = "full"; // Dark green for 100%
+                        else if (confidence >= 20 && confidence < 92) colorClass = "medium"; // Yellow for [20%, 92%)
+                        else if (confidence < 20) colorClass = "low"; // Red for < 20%
+                        
+                        const checkmark = confidence >= 100 ? " ✔" : "";
+                        return `<div class="day-block ${colorClass}"><div class="tooltip">${date}<br>Confidence: ${confidence}%${checkmark}<br>Samples: ${day.sample_count}/${expected}</div></div>`;
                     }).join('');
                 }
 
                 const years = {};
                 data.coverage.forEach(row => {
                     const date = new Date(row.month);
-                    const y = date.getFullYear();
-                    const m = date.getMonth() + 1;
-                    const daysInMonth = new Date(y, m, 0).getDate();
+                    const y = date.getUTCFullYear();
+                    const m = date.getUTCMonth() + 1;
+                    const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
                     if (!years[y]) years[y] = [];
                     years[y].push({
                         month: m,
@@ -2708,11 +2712,23 @@
                             <div class="month-grid">
                                 ${months.sort((a,b) => a.month - b.month).map(m => {
                                     const monthName = new Date(2000, m.month - 1).toLocaleString('default', { month: 'long' });
-                                    const wStatus = m.weather_days >= m.total_days ? 'full' : (m.weather_days > 0 ? 'partial' : 'empty');
-                                    const nStatus = m.thermostat_days >= m.total_days ? 'full' : (m.thermostat_days > 0 ? 'partial' : 'empty');
-                                    const expectedInMonth = m.total_days * 720;
+                                    
+                                    const wPct = Math.round((m.weather_days / m.total_days) * 100);
+                                    let wStatus = "low";
+                                    if (wPct >= 100) wStatus = "full";
+                                    else if (wPct >= 92) wStatus = "high";
+                                    else if (wPct >= 20) wStatus = "medium";
+                                    
+                                    const expectedInMonth = m.total_days * 1440;
                                     const mConfidence = Math.min(100, Math.round((m.total_samples / expectedInMonth) * 100));
-                                    return `<div class="month-card-sync"><span class="month-name-sync">${monthName}</span><div class="indicator"><div class="dot ${wStatus}"></div><span class="text-dim">Weather: ${m.weather_days}/${m.total_days}</span></div><div class="indicator"><div class="dot ${nStatus}"></div><span class="text-dim">Confidence: ${mConfidence}%</span></div></div>`;
+                                    
+                                    let nStatus = "low";
+                                    if (mConfidence >= 100) nStatus = "full";
+                                    else if (mConfidence >= 92) nStatus = "high";
+                                    else if (mConfidence >= 20) nStatus = "medium";
+                                    
+                                    const checkmark = mConfidence >= 100 ? " ✔" : "";
+                                    return `<div class="month-card-sync"><span class="month-name-sync">${monthName}</span><div class="indicator"><div class="dot ${wStatus}"></div><span class="text-dim">Weather: ${m.weather_days}/${m.total_days}</span></div><div class="indicator"><div class="dot ${nStatus}"></div><span class="text-dim">Confidence: ${mConfidence}%${checkmark}</span></div></div>`;
                                 }).join('')}
                             </div>
                         </div>`;
@@ -2795,8 +2811,8 @@
         function renderForecastGrid(days) {
             const grid = document.getElementById('forecast-grid');
             grid.innerHTML = days.map(d => {
-                const dateObj = new Date(d.date + 'T12:00:00');
-                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+                const dateObj = new Date(d.date);
+                const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', timeZone: 'UTC' });
                 const icon = weatherIcons[d.icon] || '🌤️';
                 
                 let strategyClass = 'strategy-auto';
@@ -2876,8 +2892,8 @@
 
         function renderForecastCharts(days) {
             const labels = days.map(d => {
-                const dateObj = new Date(d.date + 'T12:00:00');
-                return dateObj.toLocaleDateString('en-US', { weekday: 'short' });
+                const dateObj = new Date(d.date);
+                return dateObj.toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
             });
 
             // Temperature Chart

@@ -3,7 +3,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node dev-server.js",
-    "dev:no-branch": "node --watch server.js"
+    "dev:no-branch": "node --watch server.js",
+    "sync-weather": "node syncWeatherCLI.js"
   },
   "dependencies": {
     "axios": "^1.16.1",
