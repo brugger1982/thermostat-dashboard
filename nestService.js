@@ -1,5 +1,3 @@
-const axios = require('axios');
-
 class NestService {
     constructor(config) {
         this.clientId = config.clientId;
@@ -10,26 +8,38 @@ class NestService {
     }
 
     async exchangeCode(code, redirectUri) {
-        const response = await axios.post('https://oauth2.googleapis.com/token', {
-            client_id: this.clientId,
-            client_secret: this.clientSecret,
-            code: code,
-            grant_type: 'authorization_code',
-            redirect_uri: redirectUri
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: this.clientId,
+                client_secret: this.clientSecret,
+                code: code,
+                grant_type: 'authorization_code',
+                redirect_uri: redirectUri
+            })
         });
-        this.refreshToken = response.data.refresh_token;
-        this.accessToken = response.data.access_token;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error_description || data.error || 'exchangeCode failed');
+        this.refreshToken = data.refresh_token;
+        this.accessToken = data.access_token;
         return this.refreshToken;
     }
 
     async getAccessToken() {
-        const response = await axios.post('https://oauth2.googleapis.com/token', {
-            client_id: this.clientId,
-            client_secret: this.clientSecret,
-            refresh_token: this.refreshToken,
-            grant_type: 'refresh_token'
+        const res = await fetch('https://oauth2.googleapis.com/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+                client_id: this.clientId,
+                client_secret: this.clientSecret,
+                refresh_token: this.refreshToken,
+                grant_type: 'refresh_token'
+            })
         });
-        this.accessToken = response.data.access_token;
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error_description || data.error || 'getAccessToken failed');
+        this.accessToken = data.access_token;
         return this.accessToken;
     }
 
@@ -56,13 +66,13 @@ class NestService {
             return;
         }
         try {
-            // Acquire lease for 50 seconds to prevent concurrent polling across multiple servers (e.g. dev, docker, Cloud Run)
+            // Acquire lease for 30 seconds to prevent concurrent polling across multiple servers (e.g. dev, docker, Cloud Run)
             const lockRes = await pool.query(`
                 INSERT INTO system_settings (key, value)
                 VALUES ('LAST_NEST_POLL', NOW()::text)
                 ON CONFLICT (key) DO UPDATE
                 SET value = NOW()::text
-                WHERE (system_settings.value::timestamp < NOW() - INTERVAL '50 seconds')
+                WHERE (system_settings.value::timestamp < NOW() - INTERVAL '30 seconds')
                 RETURNING value
             `);
 
@@ -73,9 +83,14 @@ class NestService {
 
             const token = await this.getAccessToken();
             const url = `https://smartdevicemanagement.googleapis.com/v1/enterprises/${this.projectId}/devices`;
-            const res = await axios.get(url, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+            if (!res.ok) {
+                const errData = await res.json().catch(() => ({}));
+                throw new Error(JSON.stringify(errData));
+            }
+            const resData = await res.json();
             
-            const device = res.data.devices[0];
+            const device = resData.devices[0];
             const stats = device.traits['sdm.devices.traits.ThermostatHvac'];
             const tempTrait = device.traits['sdm.devices.traits.ThermostatTemperatureSetpoint'];
             
@@ -104,7 +119,7 @@ class NestService {
             `, [date, heatAdd, acAdd, avgSetpointF]);
 
         } catch (err) {
-            console.error("❌ Nest Poller Error:", err.response ? err.response.data : err.message);
+            console.error("❌ Nest Poller Error:", err.message);
         }
     }
 }
