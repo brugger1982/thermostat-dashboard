@@ -2231,27 +2231,58 @@
             }
             const paddedMaxX = Math.ceil(maxX * 1.05);
 
-            // Helper to calculate linear regression
+            // Helper to calculate power regression (y = a * x^p + b) with p = 1.25
+            // This guarantees a concave-up (convex) curve representing increasing marginal energy usage at extremes
             function getRegressionLine(points) {
                 if (points.length < 2) return null;
+                const pVal = 1.25; // Exponent > 1 guarantees concave up shape when a > 0
                 const n = points.length;
-                let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
-                points.forEach(p => {
-                    sumX += p.x;
-                    sumY += p.y;
-                    sumXY += p.x * p.y;
-                    sumXX += p.x * p.x;
-                });
-                const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-                const b = (sumY - m * sumX) / n;
                 
-                // Return start/end coordinates for regression line
+                let sumZ = 0, sumY = 0, sumZY = 0, sumZZ = 0;
+                points.forEach(p => {
+                    const z = Math.pow(p.x, pVal);
+                    sumZ += z;
+                    sumY += p.y;
+                    sumZY += z * p.y;
+                    sumZZ += z * z;
+                });
+                
+                const denom = n * sumZZ - sumZ * sumZ;
+                if (Math.abs(denom) < 1e-6) return null;
+                
+                const a = (n * sumZY - sumZ * sumY) / denom;
+                const b = (sumY - a * sumZ) / n;
+                
                 const minX = Math.min(...points.map(p => p.x));
                 const maxX = Math.max(...points.map(p => p.x));
-                return [
-                    { x: minX, y: m * minX + b },
-                    { x: maxX, y: m * maxX + b }
-                ];
+                
+                // If a <= 0, the trend is flat or decreasing. To keep it physically correct,
+                // we fall back to standard linear regression.
+                if (a <= 0) {
+                    let sumX = 0, sumXY = 0, sumXX = 0;
+                    points.forEach(p => {
+                        sumX += p.x;
+                        sumXY += p.x * p.y;
+                        sumXX += p.x * p.x;
+                    });
+                    const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+                    const linB = (sumY - m * sumX) / n;
+                    return [
+                        { x: minX, y: Math.max(0, m * minX + linB) },
+                        { x: maxX, y: Math.max(0, m * maxX + linB) }
+                    ];
+                }
+                
+                // Generate 40 points to draw a smooth curve
+                const regressionPoints = [];
+                const steps = 40;
+                const stepSize = (maxX - minX) / steps;
+                for (let i = 0; i <= steps; i++) {
+                    const x = minX + i * stepSize;
+                    const y = a * Math.pow(x, pVal) + b;
+                    regressionPoints.push({ x: x, y: Math.max(0, y) });
+                }
+                return regressionPoints;
             }
 
             const showHeating = (compareType === 'all' || compareType === 'heating');

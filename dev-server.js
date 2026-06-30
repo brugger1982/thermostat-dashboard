@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { fork } = require('child_process');
 const path = require('path');
+const runSync = require('./syncDevDb');
 
 const DATABASE_URL = process.env.DATABASE_URL;
 
@@ -36,21 +37,36 @@ async function cleanup() {
 process.on('SIGINT', cleanup);
 process.on('SIGTERM', cleanup);
 
-console.log('🧪 Starting dev server (Supabase dev project)');
-console.log(`   📦 Database: ${dbHost}`);
-console.log('');
-
-const env = {
-    ...process.env,
-    POLL_NEST: 'true',
-    DEV_MODE: 'true'
-};
-
-childProcess = fork(path.join(__dirname, 'server.js'), [], { env });
-
-childProcess.on('exit', (code) => {
-    if (!isShuttingDown) {
-        console.log(`\n⚠️  Application server exited with code ${code}`);
-        cleanup();
+async function start() {
+    try {
+        const syncSuccess = await runSync();
+        if (!syncSuccess) {
+            console.error('❌ Database sync failed. Exiting.');
+            process.exit(1);
+        }
+    } catch (err) {
+        console.error('❌ Error during database sync:', err.message);
+        process.exit(1);
     }
-});
+
+    console.log('🧪 Starting dev server (Supabase dev project)');
+    console.log(`   📦 Database: ${dbHost}`);
+    console.log('');
+
+    const env = {
+        ...process.env,
+        POLL_NEST: 'true',
+        DEV_MODE: 'true'
+    };
+
+    childProcess = fork(path.join(__dirname, 'server.js'), [], { env });
+
+    childProcess.on('exit', (code) => {
+        if (!isShuttingDown) {
+            console.log(`\n⚠️  Application server exited with code ${code}`);
+            cleanup();
+        }
+    });
+}
+
+start();

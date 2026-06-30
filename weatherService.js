@@ -9,7 +9,11 @@ class WeatherService {
         this.zipCode = zipCode;
         this.pool = new Pool({
             connectionString: connectionString,
-            ssl: { rejectUnauthorized: false }
+            ssl: { rejectUnauthorized: false },
+            // Serverless-friendly connection pool tuning
+            max: parseInt(process.env.DB_POOL_MAX) || 3,
+            idleTimeoutMillis: parseInt(process.env.DB_POOL_IDLE_TIMEOUT) || 10000,
+            connectionTimeoutMillis: parseInt(process.env.DB_POOL_CONN_TIMEOUT) || 5000
         });
     }
 
